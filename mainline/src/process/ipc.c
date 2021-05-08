@@ -67,8 +67,6 @@ void sync_send(u32 pid_target, u8 *buffer, u32 size)
                 :"g"(ptr_mcb)
                 :"eax", "ebx"
         );
-
-        ptr_mcb->mcb_status = MCB_AVAILABLE;
 }
 
 void sync_receive(u32 pid_src, u8 *buffer, u32 size)
@@ -104,11 +102,6 @@ void sync_receive(u32 pid_src, u8 *buffer, u32 size)
                 :"g"(ptr_mcb)
                 :"eax", "ebx"
         );
-
-        if (ptr_mcb->receive_queue == 0)
-                ptr_mcb->mcb_status = MCB_AVAILABLE;
-        else
-                ptr_mcb->mcb_status = MCB_BUSY;
 }
 
 void sys_sendrecv(mcb_t *ptr_mcb, u32 message_type)
@@ -128,6 +121,14 @@ void sys_sendrecv(mcb_t *ptr_mcb, u32 message_type)
                         if (MCB_RECEIVING == ptr_mcb_target->mcb_status &&
                             ptr_mcb->binding_pid == ptr_mcb_target->receive_from) {
                                 mem_cpy(ptr_mcb_target->user_msg, ptr_mcb->user_msg, ptr_mcb_target->user_msg_size);
+
+                                ptr_mcb_target->receive_queue = ptr_mcb->send_queue;
+                                if (ptr_mcb_target->receive_queue == 0)
+                                        ptr_mcb_target->mcb_status = MCB_AVAILABLE;
+                                else
+                                        ptr_mcb_target->mcb_status = MCB_BUSY;
+                                ptr_mcb->mcb_status = MCB_AVAILABLE;
+
                                 unblock(ptr_mcb_target->binding_pid);
                                 return;
                         }
@@ -159,10 +160,16 @@ void sys_sendrecv(mcb_t *ptr_mcb, u32 message_type)
                                 ptr_mcb->receive_queue = ptr_mcb_target->send_queue;
                         } else {
                                 ptr_mcb_prev = ptr_mcb->receive_queue;
-                                while (ptr_mcb_prev != ptr_mcb_target)
+                                while (ptr_mcb_prev->send_queue != ptr_mcb_target)
                                         ptr_mcb_prev = ptr_mcb_prev->send_queue;
                                 ptr_mcb_prev->send_queue = ptr_mcb_target->send_queue;
                         }
+
+                        ptr_mcb_target->mcb_status = MCB_AVAILABLE;
+                        if (ptr_mcb->receive_queue == 0)
+                                ptr_mcb->mcb_status = MCB_AVAILABLE;
+                        else
+                                ptr_mcb->mcb_status = MCB_BUSY;
 
                         unblock(ptr_mcb_target->binding_pid);
                 } else {
