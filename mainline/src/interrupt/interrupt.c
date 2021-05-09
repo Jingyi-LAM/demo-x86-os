@@ -18,7 +18,8 @@ static void (*vector_table[MAX_INTERRUPT_COUNT])(void) = {
         hwint08, hwint09, hwint10, hwint11,
         hwint12, hwint13, hwint14, hwint15,
 };
-void (*handler_table[MAX_INTERRUPT_COUNT])(void);
+void (*interrupt_handler_table[MAX_INTERRUPT_COUNT])(void);
+void (*syscall_handler_table[MAX_SYSCALL_COUNT])(void);
 
 
 void idt_init(void)
@@ -99,12 +100,20 @@ void chip8259a_init(void)
         out_byte(INT_S_CTLMASK, 0xff);
 }
 
-void register_interrupt_handler(u32 vector_no, void (*handler)())
+void register_interrupt_handler(u32 interrupt_no, void (*handler)())
 {
-        if (weak_assert(vector_no <= MAX_INTERRUPT_COUNT))
-                return;       
- 
-        handler_table[vector_no] = handler;
+        if (weak_assert(interrupt_no <= MAX_INTERRUPT_COUNT))
+                return;
+
+        interrupt_handler_table[interrupt_no] = handler;
+}
+
+void register_syscall_handler(u32 syscall_no, void (*handler)())
+{
+        if (weak_assert(syscall_no <= MAX_SYSCALL_COUNT))
+                return;
+
+        syscall_handler_table[syscall_no] = handler;
 }
 
 void enable_irq_master(int irq)

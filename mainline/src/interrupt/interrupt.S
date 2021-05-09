@@ -92,7 +92,7 @@
         movl    $kstack,        %esp
         sti
         movl    \irq_no,        %esi
-        call    *handler_table(, %esi, 4)
+        call    *interrupt_handler_table(, %esi, 4)
 	cli
 
         movb    $0x20,          %al
@@ -266,8 +266,7 @@ syscall:
         push    %ecx
         push    %ebx
         push    %eax
-        movl    $100,           %edi
-        call    *handler_table(, %edi, 4)
+        call    *syscall_handler_table(, %edi, 4)
 
         addl    $16,            %esp
         popl    %esi

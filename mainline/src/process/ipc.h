@@ -3,6 +3,7 @@
 
 #include "process.h"
 #include "common.h"
+#include "interrupt.h"
 
 #define MAX_MCB_COUNT                   128
 

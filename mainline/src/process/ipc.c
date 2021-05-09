@@ -62,10 +62,11 @@ void sync_send(u32 pid_target, u8 *buffer, u32 size)
         __asm__ __volatile__(
                 "movl %0,       %%eax   \n\t"
                 "movl $1,       %%ebx   \n\t"
+                "movl %1,       %%edi   \n\t"
                 "int  $100              \n\t"
                 :
-                :"g"(ptr_mcb)
-                :"eax", "ebx"
+                :"g"(ptr_mcb), "g"(SYSCALL_SYNC_IPC)
+                :"eax", "ebx", "edi"
         );
 }
 
@@ -97,10 +98,11 @@ void sync_receive(u32 pid_src, u8 *buffer, u32 size)
         __asm__ __volatile__(
                 "movl %0,       %%eax   \n\t"
                 "movl $2,       %%ebx   \n\t"
+                "movl %1,       %%edi   \n\t"
                 "int  $100              \n\t"
                 :
-                :"g"(ptr_mcb)
-                :"eax", "ebx"
+                :"g"(ptr_mcb), "g"(SYSCALL_SYNC_IPC)
+                :"eax", "ebx", "edi"
         );
 }
 
@@ -185,7 +187,7 @@ void sys_sendrecv(mcb_t *ptr_mcb, u32 message_type)
 void ipc_init(void)
 {
         mem_set((u8 *)mcb_table, 0, sizeof(mcb_t) * MAX_MCB_COUNT); 
-        register_interrupt_handler(100, sys_sendrecv);
+        register_syscall_handler(SYSCALL_SYNC_IPC, sys_sendrecv);
 }
 
 

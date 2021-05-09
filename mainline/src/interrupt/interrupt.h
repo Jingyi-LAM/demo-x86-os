@@ -12,6 +12,11 @@
 #define	INT_VECTOR_IRQ8         0x28
 
 #define MAX_INTERRUPT_COUNT     128
+#define MAX_SYSCALL_COUNT       128
+
+// Syscall List
+#define SYSCALL_SYNC_IPC        1
+
 
 void excp000(void);
 void excp001(void);
@@ -65,7 +70,8 @@ void syscall(void);
 
 void idt_init(void);
 void chip8259a_init(void);
-void register_interrupt_handler(u32 vector_no, void (*handler)());
+void register_interrupt_handler(u32 interrupt_no, void (*handler)());
+void register_syscall_handler(u32 syscall_no, void (*handler)());
 void enable_irq_master(int irq);
 void disable_irq_master(int irq);
 void enable_irq_slave(int irq);
