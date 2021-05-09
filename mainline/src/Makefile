@@ -12,7 +12,7 @@ CC	= gcc
 # compile flags
 BIT32	= --32
 CFLAGS	= -m32 -fno-stack-protector
-INCLUDE = -I io/ -I process/ -I debug/ -I common/ -I interrupt/ -I ./ -I heap/
+INCLUDE = -I io/ -I process/ -I debug/ -I common/ -I interrupt/ -I ./ -I heap/ -I user_app/
 
 #-----------------------------
 # link flags

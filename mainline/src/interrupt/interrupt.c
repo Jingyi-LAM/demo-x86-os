@@ -1,5 +1,4 @@
 #include "interrupt.h"
-#include "debug.h"
 
 u8 idt_base_addr[6];
 static hw_gate_t idt[MAX_INTERRUPT_COUNT];
@@ -73,7 +72,7 @@ void exception_handler(int vector_no)
                 "#XF SIMD Floating-Point Exception"
 	};
 
-	log_string(err_msg[vector_no]); 
+        ((void (*)(u8 *, u32))(*syscall_handler_table[SYSCALL_TTY_WRITE]))(err_msg[vector_no], str_len(err_msg[vector_no]));
 }
 
 static void out_byte(u16 port, u8 data)

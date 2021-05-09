@@ -30,7 +30,17 @@ int strcpy(char* dest, char* src)
         return i;
 }
 
-static int hex2string(char* dest, int data)
+int str_len(const char *src)
+{
+        int i = 0;
+
+        while (*src++ != '\0')
+                i += 1;
+
+        return i;
+}
+
+static int hex2string(char *dest, int data)
 {
         int i = 0, j = 0;
         unsigned char tmp = 0;
@@ -48,7 +58,7 @@ static int hex2string(char* dest, int data)
         return j;
 }
 
-static int dec2string(char* dest, int data)
+static int dec2string(char *dest, int data)
 {
         int input = data;
         int i = 0, j = 0;

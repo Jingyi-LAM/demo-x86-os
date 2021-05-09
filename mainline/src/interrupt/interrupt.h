@@ -2,6 +2,8 @@
 #define __INTERRUPT_H_
 
 #include "common.h"
+#include "debug.h"
+#include "string.h"
 
 
 #define INT_M_CTL               0x20
@@ -16,7 +18,7 @@
 
 // Syscall List
 #define SYSCALL_SYNC_IPC        1
-
+#define SYSCALL_TTY_WRITE       2
 
 void excp000(void);
 void excp001(void);

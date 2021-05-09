@@ -16,7 +16,6 @@ typedef struct tty_command_buffer {
         u32     current_pos;
 } tty_cmd_buf_t;
 
-
 void tty_register_command(const char *cmd, void (*handler)(void));
 void tty_task(void);
 #endif
