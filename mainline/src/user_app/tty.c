@@ -76,12 +76,29 @@ static void tty_clear_screen(void)
         current_row = -1;
 }
 
-static void tty_write(uint8_t *buf, uint32_t length)
+static void tty_write(uint8_t *buf, int32_t offset, uint32_t length, int8_t color)
 {
+        int8_t *ptr_str = buf;
+        uint16_t *p = 0;
         uint32_t i = 0;
 
-        for (i = 0; i < length; i++)
-                tty_show_char(*(buf + i), TTY_BG_GRAY | TTY_FG_LIGHTCYAN);
+        if (offset < 0)
+                p = (uint16_t *)(VRAM_BASE + TTY_WIN_WIDTH * 2 * current_row
+                        + current_column);
+        else
+                p = (uint16_t *)(VRAM_BASE + offset);
+
+        if (color < 0)
+                color = TTY_DEFAULT_COLOR;
+
+        if ((uint32_t)p + length > 0xbffff || (uint32_t)p + length < VRAM_BASE)
+                return;
+
+        for (i = 0; i < length; i++) {
+                *p = *ptr_str | (color << 8);
+                p += 1;
+                ptr_str += 1;
+        }
 }
 
 
@@ -173,7 +190,7 @@ void tty_task(void)
         
         keyboard_init();
         tty_init_screen();
-        register_syscall_handler(SYSCALL_TTY_WRITE, tty_write);
+        register_syscall_handler(SYSCALL_TTY_WRITE, (void (*)(void))tty_write);
         tty_register_command("clear", tty_clear_screen);
 
         for ( ;; ) {

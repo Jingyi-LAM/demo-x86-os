@@ -49,6 +49,7 @@
 #define TTY_BG_YELLOW           (0xe << 4)
 #define TTY_BG_WHITE            (0xf << 4)
 
+#define TTY_DEFAULT_COLOR       (TTY_BG_GRAY | TTY_FG_LIGHTCYAN)
 
 typedef struct tty_command_handler {
         s8      cmd[MAX_CMD_SIZE];
