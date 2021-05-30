@@ -162,11 +162,12 @@ void block(u32 pid)
         ptr_proc->process_status = PS_PENDING;
 
         while (ptr_proc->next) {
-                ptr_proc_run = ptr_proc->next;
-                if (ptr_proc_run->process_status == PS_READY_TO_RUN)
+                ptr_proc = ptr_proc->next;
+                if (ptr_proc->process_status == PS_READY_TO_RUN)
                         break;
         }
 
+        ptr_proc_run = ptr_proc;
         ptr_proc_run->schedule_info.time_slice = ptr_proc_run->schedule_info.default_ts;
         set_tss_esp0((u32)&ptr_proc_run->selector_ldt);
         __asm__ __volatile__(
