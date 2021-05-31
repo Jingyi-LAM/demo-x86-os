@@ -6,6 +6,7 @@
 #include "interrupt.h"
 
 #define MAX_MCB_COUNT                   128
+#define PID_ANY                         -0xff
 
 enum message_control_block_status {
         MCB_AVAILABLE   = 0,
@@ -22,18 +23,18 @@ enum message_type {
 
 
 typedef struct message_control_block {
-        u8                              *user_msg;
-        s32                             user_msg_size;
-        s32                             receive_from;
-        s32                             send_to;
+        uint8_t                         *user_msg;
+        int32_t                         user_msg_size;
+        int32_t                         receive_from;
+        int32_t                         send_to;
         struct message_control_block    *receive_queue;
         struct message_control_block    *send_queue;
-        s32                             binding_pid;
-        s8                              mcb_status;
+        int32_t                         binding_pid;
+        int8_t                          mcb_status;
 } mcb_t;
 
 
 void ipc_init(void);
-void sync_send(u32 pid_target, u8 *buffer, u32 size);
-void sync_receive(u32 pid_src, u8 *buffer, u32 size);
+void sync_send(uint32_t pid_target, uint8_t *buffer, uint32_t size);
+void sync_receive(uint32_t pid_src, uint8_t *buffer, uint32_t size);
 #endif

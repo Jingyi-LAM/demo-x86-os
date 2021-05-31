@@ -60,7 +60,6 @@ void demo2(void)
         }
 }
 
-
 void create_task(void)
 {
         char *tty_stack = rheap_malloc(512);

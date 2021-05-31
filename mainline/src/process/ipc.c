@@ -9,7 +9,7 @@ mcb_t *get_available_mcb(void)
         for (i = 0; i < MAX_MCB_COUNT; i++) {
                 if (!mcb_table[i].mcb_status) {
                         for (j = 0; j < sizeof(mcb_t); j++)
-                                *((u8 *)&mcb_table[i] + j) = 0;
+                                *((uint8_t *)&mcb_table[i] + j) = 0;
                         return &mcb_table[i];
                 }
         }
@@ -17,19 +17,20 @@ mcb_t *get_available_mcb(void)
         return 0;
 }
 
-mcb_t *get_target_mcb(u32 pid)
+mcb_t *get_target_mcb(uint32_t pid)
 {
         int i = 0;
 
         for (i = 0; i < MAX_MCB_COUNT; i++) {
-                if (MCB_AVAILABLE != mcb_table[i].mcb_status && pid == mcb_table[i].binding_pid)
+                if (MCB_AVAILABLE != mcb_table[i].mcb_status &&
+                    pid == mcb_table[i].binding_pid)
                         return &mcb_table[i];
         }
         
         return 0;
 }
 
-static int check_deadlock(u32 pid_from, u32 pid_to)
+static int check_deadlock(uint32_t pid_from, uint32_t pid_to)
 {
         mcb_t *ptr_to = get_target_mcb(pid_to);
 
@@ -46,7 +47,7 @@ static int check_deadlock(u32 pid_from, u32 pid_to)
 }
 
 
-void sync_send(u32 pid_target, u8 *buffer, u32 size)
+void sync_send(uint32_t pid_target, uint8_t *buffer, uint32_t size)
 {
         mcb_t *ptr_mcb = get_available_mcb();
 
@@ -70,14 +71,15 @@ void sync_send(u32 pid_target, u8 *buffer, u32 size)
         );
 }
 
-void sync_receive(u32 pid_src, u8 *buffer, u32 size)
+void sync_receive(uint32_t pid_src, uint8_t *buffer, uint32_t size)
 {
-        u32 pid_curr = get_current_pid();
+        uint32_t pid_curr = get_current_pid();
         mcb_t *ptr_mcb = 0;
         int i = 0;
 
         for (i = 0; i < MAX_MCB_COUNT; i++) {
-                if (pid_curr == mcb_table[i].binding_pid && MCB_BUSY == mcb_table[i].mcb_status) {
+                if (pid_curr == mcb_table[i].binding_pid &&
+                    MCB_BUSY == mcb_table[i].mcb_status) {
                         ptr_mcb = &mcb_table[i];
                         break;
                 }
@@ -106,7 +108,7 @@ void sync_receive(u32 pid_src, u8 *buffer, u32 size)
         );
 }
 
-void sys_sendrecv(mcb_t *ptr_mcb, u32 message_type)
+void sys_sendrecv(mcb_t *ptr_mcb, uint32_t message_type)
 {
         mcb_t *ptr_mcb_prev = 0;
         mcb_t *ptr_mcb_target = 0;
@@ -121,8 +123,12 @@ void sys_sendrecv(mcb_t *ptr_mcb, u32 message_type)
                 ptr_mcb_target = get_target_mcb(ptr_mcb->send_to);
                 if (ptr_mcb_target) {
                         if (MCB_RECEIVING == ptr_mcb_target->mcb_status &&
-                            ptr_mcb->binding_pid == ptr_mcb_target->receive_from) {
-                                mem_cpy(ptr_mcb_target->user_msg, ptr_mcb->user_msg, ptr_mcb_target->user_msg_size);
+                           (ptr_mcb->binding_pid == ptr_mcb_target->receive_from ||
+                           (ptr_mcb_target->receive_from == PID_ANY &&
+                            ptr_mcb_target->receive_queue == 0))) {
+                                mem_cpy(ptr_mcb_target->user_msg,
+                                        ptr_mcb->user_msg,
+                                        ptr_mcb_target->user_msg_size);
 
                                 ptr_mcb_target->receive_queue = ptr_mcb->send_queue;
                                 if (ptr_mcb_target->receive_queue == 0)
@@ -154,9 +160,32 @@ void sys_sendrecv(mcb_t *ptr_mcb, u32 message_type)
                 
                 break;
         case MSG_TYPE_RECEIVE:
+                if (ptr_mcb->receive_from == PID_ANY) {
+                        if (ptr_mcb->receive_queue) {
+                                ptr_mcb_target = ptr_mcb->receive_queue;
+                                mem_cpy(ptr_mcb->user_msg,
+                                        ptr_mcb_target->user_msg,
+                                        ptr_mcb->user_msg_size);
+                                ptr_mcb->receive_queue = ptr_mcb_target->send_queue;
+
+                                ptr_mcb_target->mcb_status = MCB_AVAILABLE;
+                                if (ptr_mcb->receive_queue == 0)
+                                        ptr_mcb->mcb_status = MCB_AVAILABLE;
+                                else
+                                        ptr_mcb->mcb_status = MCB_BUSY;
+                                unblock(ptr_mcb_target->binding_pid);
+                        } else {
+                                block(ptr_mcb->binding_pid);
+                        }
+                        break;
+                }
+
                 ptr_mcb_target = get_target_mcb(ptr_mcb->receive_from);
-                if (ptr_mcb_target->mcb_status == MCB_SENDING && ptr_mcb_target->send_to == ptr_mcb->binding_pid) {
-                        mem_cpy(ptr_mcb->user_msg, ptr_mcb_target->user_msg, ptr_mcb->user_msg_size);
+                if (ptr_mcb_target->mcb_status == MCB_SENDING &&
+                    ptr_mcb_target->send_to == ptr_mcb->binding_pid) {
+                        mem_cpy(ptr_mcb->user_msg,
+                                ptr_mcb_target->user_msg,
+                                ptr_mcb->user_msg_size);
 
                         if (ptr_mcb->receive_queue == ptr_mcb_target) {
                                 ptr_mcb->receive_queue = ptr_mcb_target->send_queue;
@@ -186,7 +215,7 @@ void sys_sendrecv(mcb_t *ptr_mcb, u32 message_type)
 
 void ipc_init(void)
 {
-        mem_set((u8 *)mcb_table, 0, sizeof(mcb_t) * MAX_MCB_COUNT); 
+        mem_set((uint8_t *)mcb_table, 0, sizeof(mcb_t) * MAX_MCB_COUNT); 
         register_syscall_handler(SYSCALL_SYNC_IPC, sys_sendrecv);
 }
 
