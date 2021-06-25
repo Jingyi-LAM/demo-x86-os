@@ -5,3 +5,5 @@ vgaromimage     : file=/usr/share/vgabios/vgabios.bin
 floppya         : 1_44=./out/floppy.img, status=inserted
 boot            : floppy
 mouse           : enabled=0
+ata0            : enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
+ata0-master     : type=disk, path="20m.img", mode=flat

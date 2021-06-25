@@ -1,6 +1,7 @@
 #include "task.h"
 #include "heap.h"
 #include "tty.h"
+#include "hd.h"
 
 void print_k(void)
 {
@@ -63,6 +64,7 @@ void demo2(void)
 void create_task(void)
 {
         char *tty_stack = rheap_malloc(512);
+        char *hd_stack = rheap_malloc(2048);
         char *demo1_stack = rheap_malloc(256);
         char *demo2_stack = rheap_malloc(256);
 
@@ -72,18 +74,24 @@ void create_task(void)
                 .stack_size = 512,
                 .priviledge = 1,
         };
-        create_process(&proc_info);  
+        create_process(&proc_info);
+
+        proc_info.f_entry = hd_task;
+        proc_info.stack = hd_stack;
+        proc_info.stack_size = 2048;
+        proc_info.priviledge = 1;
+        create_process(&proc_info);
 
         proc_info.f_entry = demo1;
         proc_info.stack = demo1_stack;
         proc_info.stack_size = 256;
         proc_info.priviledge = 3;
-        create_process(&proc_info);  
+        create_process(&proc_info);
 
         proc_info.f_entry = demo2;
         proc_info.stack = demo2_stack;
         proc_info.stack_size = 256;
         proc_info.priviledge = 3;
-        create_process(&proc_info); 
+        create_process(&proc_info);
 }
 

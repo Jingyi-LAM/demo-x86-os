@@ -63,9 +63,11 @@ kb.o    : io/keyboard.c
 	$(CC) -c $(CFLAGS) $(INCLUDE) $^ -o $@
 io.o    : io/io.c
 	$(CC) -c $(CFLAGS) $(INCLUDE) $^ -o $@
-tty.o   : user_app/tty.c
+hd.o    : io/hd.c
 	$(CC) -c $(CFLAGS) $(INCLUDE) $^ -o $@
-kn.bin  : kn_S.o kn_c.o common.o int_S.o int_c.o proc.o debug.o task.o ipc.o kb.o tty.o heap.o string.o io.o
+tty.o   : io/tty.c
+	$(CC) -c $(CFLAGS) $(INCLUDE) $^ -o $@
+kn.bin  : kn_S.o kn_c.o common.o int_S.o int_c.o proc.o debug.o task.o ipc.o kb.o tty.o heap.o string.o io.o hd.o
 	$(LD) $(ELF) -Ttext $(KN_ENTRY) $^ -o $@
 
 clean   :
