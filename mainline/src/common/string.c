@@ -64,7 +64,10 @@ static int dec2string(char *dest, int data)
         int i = 0, j = 0;
         char tmp = 0;
 
-        if (input < 0) {
+        if (input == 0) {
+                *dest = '0';
+                return 1;
+        } else if (input < 0) {
                 *dest = '-';
                 dest++;
                 input = -input;

@@ -37,12 +37,10 @@
 /******************************************************************
 * Hard disk Common Configures
 *******************************************************************/
-#define NUM_MAX_DRIVER          1
-#define NUM_PART_PER_DRIVE      4
-#define NUM_SUB_PER_PART        16
-#define NUM_SUB_PER_DRIVE       (NUM_PART_PER_DRIVE * NUM_SUB_PER_PART)
-#define NUM_PRIM_PER_DRIVE      (NUM_PART_PER_DRIVE + 1)
-#define NUM_MAX_PRIM            (NUM_MAX_DRIVER * NUM_PRIM_PER_DRIVE - 1)
+#define NUM_MAX_DRIVER          2
+#define NUM_PRIMARY_PER_DRIVER  4
+#define NUM_LOGICAL_PER_EXTEND  16
+#define NUM_LOGICAL_PER_DRIVER  (NUM_PRIMARY_PER_DRIVER * NUM_LOGICAL_PER_EXTEND)
 
 #define MAJOR_NO_DEV            0x0
 #define MAJOR_FLOPPY            0x1
@@ -89,8 +87,8 @@ typedef struct partition_data_info {
 } pdata_info_t;
 
 typedef struct partition_info {
-        pdata_info_t primary[NUM_PRIM_PER_DRIVE];
-        pdata_info_t logical[NUM_SUB_PER_DRIVE];
+        pdata_info_t primary[NUM_PRIMARY_PER_DRIVER];
+        pdata_info_t logical[NUM_LOGICAL_PER_DRIVER];
 } partition_info_t;
 
 void hd_task(void);

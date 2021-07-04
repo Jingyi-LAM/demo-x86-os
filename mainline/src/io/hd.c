@@ -57,10 +57,10 @@ static inline void hd_wait_for_interrupt(void)
         while (g_is_busy);
 }
 
-static void hd_read_section(uint32_t driver,
-                            uint32_t sector,
-                            uint8_t *buffer,
-                            uint32_t length)
+static void hd_read_sector(uint32_t driver,
+                           uint32_t sector,
+                           uint8_t *buffer,
+                           uint32_t length)
 {
         uint8_t *current = buffer;
         int32_t cnt_left = length;
@@ -95,10 +95,10 @@ static void hd_read_section(uint32_t driver,
         }
 }
 
-static void hd_write_section(uint32_t driver,
-                             uint32_t sector,
-                             uint8_t *buffer,
-                             uint32_t length)
+static void hd_write_sector(uint32_t driver,
+                            uint32_t sector,
+                            uint8_t *buffer,
+                            uint32_t length)
 {
         int32_t cnt_left = length;
         uint8_t *current = buffer;
@@ -181,55 +181,57 @@ static void hd_dump_info(uint8_t *ptr_hd_info)
         user_tty_print(buf, 160, 128, -1);
 }
 
-
-static void hd_get_partition_info(uint8_t device, uint8_t type)
+static void hd_get_logical_info(uint8_t drv_no, uint8_t primary_no)
 {
-        pinfo_entry_t pinfo_tbl[NUM_SUB_PER_PART];       
-        int8_t drive = device < NUM_SUB_PER_DRIVE ? 0 : 1;
+        pinfo_entry_t pinfo_tbl[NUM_LOGICAL_PER_EXTEND];
         int8_t sector_buf[SECTOR_SIZE] = {0};
         int32_t i = 0;
-        int32_t num_1st_sub = 0;
+        int32_t index_first_logical = 0;
         int32_t current_sect = 0;
-        int32_t ext_start_sect = 0;
-        partition_info_t *ptr_hdinfo = &g_partition_info[drive];
+        int32_t logical_base_sect = 0;
+        partition_info_t *ptr_hdinfo = &g_partition_info[drv_no];
 
-        if (type == PART_TYPE_PRIMARY) {
-                hd_read_section(drive, 0, sector_buf, SECTOR_SIZE);
+        logical_base_sect = ptr_hdinfo->primary[primary_no % NUM_PRIMARY_PER_DRIVER].base_sect;
+        current_sect = logical_base_sect;
+        index_first_logical = (primary_no % NUM_PRIMARY_PER_DRIVER) * NUM_LOGICAL_PER_EXTEND;
+
+        for (i = 0; i < NUM_LOGICAL_PER_EXTEND; i++) {
+                hd_read_sector(drv_no, current_sect, sector_buf, SECTOR_SIZE);
                 mem_cpy(pinfo_tbl,
                         sector_buf + PARTITION_TABLE_OFFSET,
-                        sizeof(pinfo_entry_t) * NUM_PART_PER_DRIVE);
+                        sizeof(pinfo_entry_t) * 2);
 
-                for (i = 0; i < NUM_PART_PER_DRIVE; i++) {
-                        if (pinfo_tbl[i].sys_id == SYSID_NO_PART)
-                                continue;
+                ptr_hdinfo->logical[index_first_logical + i].base_sect = current_sect +
+                                                        pinfo_tbl[0].start_sector_count;
+                ptr_hdinfo->logical[index_first_logical + i].size = pinfo_tbl[0].num_section;
 
-                        ptr_hdinfo->primary[i + 1].base_sect = pinfo_tbl[i].start_sector_count;
-                        ptr_hdinfo->primary[i + 1].size = pinfo_tbl[i].num_section;
+                current_sect = logical_base_sect + pinfo_tbl[1].start_sector_count; 
+                if (pinfo_tbl[1].sys_id == SYSID_NO_PART)
+                        break;
+        }
+}
 
-                        if (pinfo_tbl[i].sys_id == SYSID_EXT_PART) {
-                                hd_get_partition_info(device + i + 1,
-                                                      PART_TYPE_EXTENDED);
-                        }
-                }
-        } else if (type == PART_TYPE_EXTENDED) {
-                ext_start_sect = ptr_hdinfo->primary[device % NUM_PRIM_PER_DRIVE].base_sect;      
-                current_sect = ext_start_sect;
-                num_1st_sub = (device % NUM_PRIM_PER_DRIVE - 1) * NUM_SUB_PER_PART;
+static void hd_get_partition_info(uint8_t drv_no)
+{
+        pinfo_entry_t pinfo_tbl[NUM_PRIMARY_PER_DRIVER];
+        int8_t sector_buf[SECTOR_SIZE] = {0};
+        int32_t i = 0;
+        partition_info_t *ptr_hdinfo = &g_partition_info[drv_no];
 
-                for (i = 0; i < NUM_SUB_PER_PART; i++) {
-                        hd_read_section(drive, current_sect, sector_buf, SECTOR_SIZE);
-                        mem_cpy(pinfo_tbl,
-                                sector_buf + PARTITION_TABLE_OFFSET,
-                                sizeof(pinfo_entry_t) * NUM_PART_PER_DRIVE);
+        hd_read_sector(drv_no, 0, sector_buf, SECTOR_SIZE);
+        mem_cpy(pinfo_tbl,
+                sector_buf + PARTITION_TABLE_OFFSET,
+                sizeof(pinfo_entry_t) * NUM_PRIMARY_PER_DRIVER);
 
-                        ptr_hdinfo->logical[num_1st_sub + i].base_sect = current_sect +
-                                                                pinfo_tbl[0].start_sector_count;
-                        ptr_hdinfo->logical[num_1st_sub + i].size = pinfo_tbl[0].num_section;
+        for (i = 0; i < NUM_PRIMARY_PER_DRIVER; i++) {
+                if (pinfo_tbl[i].sys_id == SYSID_NO_PART)
+                        continue;
 
-                        current_sect = ext_start_sect + pinfo_tbl[1].start_sector_count; 
-                        if (pinfo_tbl[1].sys_id == SYSID_NO_PART)
-                                break;
-                }
+                ptr_hdinfo->primary[i].base_sect = pinfo_tbl[i].start_sector_count;
+                ptr_hdinfo->primary[i].size = pinfo_tbl[i].num_section;
+
+                if (pinfo_tbl[i].sys_id == SYSID_EXT_PART)
+                        hd_get_logical_info(drv_no, i);
         }
 }
 
@@ -239,10 +241,11 @@ static void hd_dump_partition_info(partition_info_t *ptr_hdinfo)
         uint8_t buf[128] = {0};
         static int32_t line = 2;
 
-        for (i = 0; i < NUM_PRIM_PER_DRIVE; i++) {
+        for (i = 0; i < NUM_PRIMARY_PER_DRIVER; i++) {
                 if (ptr_hdinfo->primary[i].size == 0)
                         continue;
                 
+                mem_set(buf, 0, 128);
                 vsprint(buf, "Found primary partition: id=%d, base_sector=%d, size=%d",
                         i,
                         ptr_hdinfo->primary[i].base_sect,
@@ -251,10 +254,11 @@ static void hd_dump_partition_info(partition_info_t *ptr_hdinfo)
                 line += 1;
         }
 
-        for (i = 0; i < NUM_SUB_PER_DRIVE; i++) {
+        for (i = 0; i < NUM_LOGICAL_PER_DRIVER; i++) {
                 if (ptr_hdinfo->logical[i].size == 0)
                         continue;
 
+                mem_set(buf, 0, 128);
                 vsprint(buf, "Found logical partition: id=%d, base_sector=%d, size=%d",
                         i,
                         ptr_hdinfo->logical[i].base_sect,
@@ -276,20 +280,22 @@ static void hd_init(void)
         enable_irq_slave(6);
 
         hd_identify(0);
-        //hd_dump_info(g_buf);
+        hd_dump_info(g_buf);
 
-        hd_get_partition_info(0, PART_TYPE_PRIMARY);
-        //hd_dump_partition_info(&g_partition_info[0]);
+        hd_get_partition_info(0);
+        hd_dump_partition_info(&g_partition_info[0]);
+        hd_get_partition_info(1);
+        hd_dump_partition_info(&g_partition_info[1]);
 }
 
 static void hd_test(void)
 {
         mem_set(g_buf, 0, SECTOR_SIZE);
         vsprint(g_buf, "Test for hd write/read done"); 
-        hd_write_section(0, 1000, g_buf, SECTOR_SIZE);
+        hd_write_sector(0, 1000, g_buf, SECTOR_SIZE);
 
         mem_set(g_buf, 0, SECTOR_SIZE);
-        hd_read_section(0, 1000, g_buf, SECTOR_SIZE);
+        hd_read_sector(0, 1000, g_buf, SECTOR_SIZE);
         user_tty_print(g_buf, 160 * 24, SECTOR_SIZE, -1);
 }
 
@@ -297,7 +303,7 @@ static void hd_test(void)
 void hd_task(void)
 {
         hd_init();
-        //hd_test();
+        hd_test();
 
         for ( ;; ) {
 
