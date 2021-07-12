@@ -2,10 +2,10 @@
 
 static uint8_t g_buf[SECTOR_SIZE * 4] = {0};
 static int8_t g_zero_padding[SECTOR_SIZE] = {0};
-static uint8_t g_is_busy = 0;
+static volatile uint8_t g_is_busy = 0;
 static partition_info_t g_partition_info[NUM_MAX_DRIVER] = {0};
 
-static void user_tty_print(uint8_t *buf,
+void user_tty_print(uint8_t *buf,
                            uint32_t position,
                            uint32_t len,
                            uint8_t color)
@@ -44,6 +44,7 @@ static void hd_write_cmd(hd_cmd_t *ptr_cmd)
 
 static void hd_handler(void)
 {
+        io_in8(HD_REG_STATUS);
         g_is_busy = 0;
 }
 
@@ -80,7 +81,6 @@ static void hd_read_sector(uint32_t driver,
         while (cnt_left > 0) {
                 hd_wait_for_interrupt();
                 while ((io_in8(HD_REG_STATUS) & 0x08) != 0x08);
-
                 if (cnt_left > SECTOR_SIZE) {
                         io_read(HD_REG_DATA, current, SECTOR_SIZE);
                         current += SECTOR_SIZE;
@@ -102,6 +102,7 @@ static void hd_write_sector(uint32_t driver,
 {
         int32_t cnt_left = length;
         uint8_t *current = buffer;
+        int i = 0;
 
         hd_cmd_t cmd = {
                 .features = 0,
@@ -114,24 +115,26 @@ static void hd_write_sector(uint32_t driver,
                 .command  = HD_CMD_WRITE,
         };
 
-        hd_set_busy_state();
         hd_write_cmd(&cmd);
         while ((io_in8(HD_REG_STATUS) & 0x40) != 0x40);
         while (cnt_left > 0) {
+                while ((io_in8(HD_REG_STATUS) & 0x08) != 0x08);
+                hd_set_busy_state();
                 if (cnt_left > SECTOR_SIZE) {
                         io_write(HD_REG_DATA, current, SECTOR_SIZE);
                         cnt_left -= SECTOR_SIZE;
                         current += SECTOR_SIZE;
+                        hd_wait_for_interrupt();
                 } else {
                         io_write(HD_REG_DATA, current, cnt_left);
                         mem_set(g_zero_padding, 0, SECTOR_SIZE - cnt_left);
                         io_write(HD_REG_DATA,
                                  g_zero_padding,
                                  SECTOR_SIZE - cnt_left);
+                        hd_wait_for_interrupt();
                         break;
                 }
         }
-        hd_wait_for_interrupt();
 }
 
 /******************************************************************
@@ -268,8 +271,6 @@ static void hd_dump_partition_info(partition_info_t *ptr_hdinfo)
         }
 }
 
-
-
 /******************************************************************
 * Hard disk initialization and main function Workspace
 *******************************************************************/
@@ -279,13 +280,13 @@ static void hd_init(void)
         enable_irq_master(2);
         enable_irq_slave(6);
 
-        hd_identify(0);
-        hd_dump_info(g_buf);
+        //hd_identify(0);
+        //hd_dump_info(g_buf);
 
-        hd_get_partition_info(0);
-        hd_dump_partition_info(&g_partition_info[0]);
-        hd_get_partition_info(1);
-        hd_dump_partition_info(&g_partition_info[1]);
+        //hd_get_partition_info(0);
+        //hd_dump_partition_info(&g_partition_info[0]);
+        //hd_get_partition_info(1);
+        //hd_dump_partition_info(&g_partition_info[1]);
 }
 
 static void hd_test(void)
@@ -299,14 +300,115 @@ static void hd_test(void)
         user_tty_print(g_buf, 160 * 24, SECTOR_SIZE, -1);
 }
 
-
 void hd_task(void)
 {
+        hd_msg_t msg = {0};
+        uint64_t sector_index = 0;
+        uint64_t sector_offset = 0;
+        int32_t count = 0;
+
         hd_init();
         hd_test();
 
         for ( ;; ) {
+                mem_set(&msg, 0, sizeof(msg));
+                sync_receive(PID_ANY, (uint8_t *)&msg, sizeof(msg));
+                switch (msg.msg_type) {
+                case HD_MSG_WRITE:
+                        mem_set(g_buf, 0, SECTOR_SIZE);
+                        // Handle the first sector
+                        if (msg.addr % SECTOR_SIZE) {
+                                sector_index = msg.addr / SECTOR_SIZE;
+                                sector_offset = msg.addr % SECTOR_SIZE;
+                                hd_read_sector(msg.drv_no,
+                                               sector_index,
+                                               g_buf,
+                                               SECTOR_SIZE);
 
+                                if (sector_offset + msg.length > SECTOR_SIZE)
+                                        count = SECTOR_SIZE - sector_offset;
+                                else
+                                        count = msg.length;
+
+                                mem_cpy(g_buf + sector_offset,
+                                        msg.message_buffer,
+                                        count);
+                                hd_write_sector(msg.drv_no,
+                                                sector_index,
+                                                g_buf,
+                                                SECTOR_SIZE);
+
+                                msg.message_buffer += count;
+                                msg.addr += count;
+                                msg.length -= count;
+                                if (msg.length <= 0)
+                                        break;
+                        }
+
+                        while (msg.length / SECTOR_SIZE) {
+                                mem_set(g_buf, 0, SECTOR_SIZE);
+                                mem_cpy(g_buf, msg.message_buffer, SECTOR_SIZE);
+                                sector_index = msg.addr / SECTOR_SIZE;
+                                hd_write_sector(msg.drv_no,
+                                                sector_index,
+                                                g_buf,
+                                                SECTOR_SIZE);
+
+                                msg.message_buffer += SECTOR_SIZE;
+                                msg.addr += SECTOR_SIZE;
+                                msg.length -= SECTOR_SIZE;
+                        }
+
+                        // Handle the last sector
+                        if (msg.length) {
+                                sector_index = msg.addr / SECTOR_SIZE;
+                                mem_set(g_buf, 0, SECTOR_SIZE);
+                                hd_read_sector(msg.drv_no,
+                                               sector_index,
+                                               g_buf,
+                                               SECTOR_SIZE);
+                                mem_cpy(g_buf, msg.message_buffer, msg.length);
+                                hd_write_sector(msg.drv_no,
+                                                sector_index,
+                                                g_buf,
+                                                SECTOR_SIZE);
+                        }
+                        sync_send(msg.pid_src,
+                                  HD_ACK_WRITE_DONE,
+                                  str_len(HD_ACK_WRITE_DONE));
+                        break;
+                case HD_MSG_READ:
+                        while (msg.length > 0) {
+                                mem_set(g_buf, 0, SECTOR_SIZE);
+                                sector_index = msg.addr / SECTOR_SIZE;
+                                sector_offset = msg.addr % SECTOR_SIZE;
+                                hd_read_sector(msg.drv_no,
+                                               sector_index,
+                                               g_buf,
+                                               SECTOR_SIZE);
+
+                                if (sector_offset + msg.length > SECTOR_SIZE)
+                                        count = SECTOR_SIZE - sector_offset;
+                                else
+                                        count = msg.length;
+                                mem_cpy(msg.message_buffer,
+                                        g_buf + sector_offset,
+                                        count);
+
+                                msg.message_buffer += count;
+                                msg.addr += count;
+                                msg.length -= count;
+                        }
+                        sync_send(msg.pid_src,
+                                  HD_ACK_READ_DONE,
+                                  str_len(HD_ACK_READ_DONE));
+                        break;
+                default:
+                        sync_send(msg.pid_src,
+                                  HD_ACK_UNSUPPORT_CMD,
+                                  str_len(HD_ACK_UNSUPPORT_CMD));
+                        break;
+                }
         }
 }
 

@@ -6,6 +6,8 @@
 #include "string.h"
 #include "interrupt.h"
 #include "tty.h"
+#include "fs.h"
+#include "ipc.h"
 
 #define MAKE_DEVICE_REG(mode, drv, lba_top4)    \
         (((mode) << 6) | ((drv) << 4) | (lba_top4 & 0xf) | 0xa0)
@@ -58,6 +60,10 @@
 #define SYSID_NO_PART           0x00
 #define SYSID_EXT_PART          0x05
 
+#define HD_ACK_WRITE_DONE       "HD WR Done"
+#define HD_ACK_READ_DONE        "HD RD Done"
+#define HD_ACK_UNSUPPORT_CMD    "Unsupport Message Type"
+
 typedef struct hd_cmd {
         uint8_t features;
         uint8_t count;
@@ -90,6 +96,24 @@ typedef struct partition_info {
         pdata_info_t primary[NUM_PRIMARY_PER_DRIVER];
         pdata_info_t logical[NUM_LOGICAL_PER_DRIVER];
 } partition_info_t;
+
+
+/******************************************************************
+* IPC
+*******************************************************************/
+enum hd_message_type {
+        HD_MSG_WRITE = 0xfa,
+        HD_MSG_READ = 0xaf,
+};
+
+typedef struct hd_message {
+        enum hd_message_type    msg_type;
+        uint8_t                 *message_buffer;
+        uint8_t                 drv_no;
+        uint64_t                addr;
+        int64_t                 length;
+        int32_t                 pid_src;
+} hd_msg_t;
 
 void hd_task(void);
 #endif

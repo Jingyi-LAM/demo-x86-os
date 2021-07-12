@@ -44,15 +44,18 @@ static int hex2string(char *dest, int data)
 {
         int i = 0, j = 0;
         unsigned char tmp = 0;
+        unsigned char not_zero = 0;
 
         for (i = 0; i < sizeof(int) * 2; i++) {
                 tmp = data >> (28 - i * 4) & 0xf;
-                if (!tmp)
+                if (!tmp && !not_zero)
                         continue;
 
                 *dest = tmp >= 10 ? tmp - 10 + 'A' : tmp + '0';
                 dest += 1;
                 j += 1;
+                if (!not_zero)
+                        not_zero = 1;
         }
 
         return j;
