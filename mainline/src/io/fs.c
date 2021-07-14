@@ -1,5 +1,4 @@
 #include "fs.h"
-#include "string.h"
 
 static uint8_t g_fs_buf[SECTOR_SIZE * 30] = {0};
 
@@ -57,7 +56,35 @@ dir_entry_name_offset = %d",
         user_tty_print((uint8_t *)g_fs_buf, 160 * 5, 512, -1);
 }
 
-#if 0
+static void hd_write_read(hd_op_t type,
+                          uint8_t drv_no,
+                          uint8_t *buf,
+                          uint64_t addr,
+                          int64_t length)
+{
+        hd_msg_t msg = {
+                .operation = type,
+                .message_buffer = buf,
+                .drv_no = drv_no,
+                .addr = addr,
+                .length = length,
+                .pid_src = get_current_pid(),
+        };
+
+        sync_send(1, (uint8_t *)&msg, sizeof(hd_msg_t));
+        for ( ;; ) {
+                sync_receive(PID_ANY,
+                             (uint8_t *)&msg,
+                             sizeof(hd_msg_t));  // Wait for task done
+
+                if (str_cmp((uint8_t *)&msg,
+                            HD_ACK_WRITE_DONE,
+                            str_len(HD_ACK_WRITE_DONE)))
+                        break;
+        }
+
+}
+
 void mkfs(void)
 {
         super_block_t sb = {0};
@@ -84,15 +111,25 @@ void mkfs(void)
         sb.dir_entry_inode_offset  = OF_OFFSET(dir_entry_t, inode_index),
         sb.dir_entry_name_offset   = OF_OFFSET(dir_entry_t, name),
 
+        dump_sb_info(&sb);
         mem_set(g_fs_buf, 0x90, SECTOR_SIZE);
         mem_cpy(g_fs_buf, &sb, SUPER_BLOCK_SIZE);
-        hd_write_sector(0, FS_SECTOR_BASE + FS_SUPEERBLOCK_OFFSET, g_fs_buf, SECTOR_SIZE); 
-        dump_sb_info(&sb);
+        hd_write_read(HD_OP_WRITE,
+                      1,
+                      g_fs_buf,
+                      (FS_SECTOR_BASE + FS_SUPEERBLOCK_OFFSET) * SECTOR_SIZE,
+                      SECTOR_SIZE);
+
 
         // Sector 2: inode map
         mem_set(g_fs_buf, 0, SECTOR_SIZE);
         g_fs_buf[0] = 0x7;      // Pre-defined 3 inodes: reserved, '/', tty
-        hd_write_sector(0, FS_SECTOR_BASE + FS_INODEMAP_OFFSET, g_fs_buf, SECTOR_SIZE);
+        hd_write_read(HD_OP_WRITE,
+                      1,
+                      g_fs_buf,
+                      (FS_SECTOR_BASE + FS_INODEMAP_OFFSET) * SECTOR_SIZE,
+                      SECTOR_SIZE);
+
 
         // Sector 3~N: Sector map
         mem_set(g_fs_buf, 0, SECTOR_SIZE);
@@ -100,11 +137,19 @@ void mkfs(void)
                 g_fs_buf[i] = 0xff;
         for (j = 0; j < num_root_file_sectors % 8; j++)
                 g_fs_buf[i] |= (1 << j); 
-        hd_write_sector(0, FS_SECTOR_BASE + FS_SECTMAP_OFFSET, g_fs_buf, SECTOR_SIZE);
+        hd_write_read(HD_OP_WRITE,
+                      1,
+                      g_fs_buf,
+                      (FS_SECTOR_BASE + FS_SECTMAP_OFFSET) * SECTOR_SIZE,
+                      SECTOR_SIZE);
 
-        mem_set(g_fs_buf, 0, SECTOR_SIZE);
-        for (i = 1; i < sb.num_smap_sectors; i++)       // Start with 1, because root file sector
-                hd_write_sector(0, FS_SECTOR_BASE + FS_SECTMAP_OFFSET + i, g_fs_buf, SECTOR_SIZE);
+        mem_set(g_fs_buf, 0xcc, SECTOR_SIZE * 30);
+        hd_write_read(HD_OP_WRITE,
+                      1,
+                      g_fs_buf,
+                      (FS_SECTOR_BASE + FS_SECTMAP_OFFSET + 1) * SECTOR_SIZE,
+                      (sb.num_smap_sectors - 1) * SECTOR_SIZE);
+
 
         // Sector N+1~M: inode array
         mem_set(g_fs_buf, 0, SECTOR_SIZE);
@@ -113,62 +158,29 @@ void mkfs(void)
         ptr_inode->file_size = sizeof(dir_entry_t);     // 1 file: '.'
         ptr_inode->start_sector = sb.first_data_sector_index;
         ptr_inode->max_sectors = num_root_file_sectors;
-        hd_write_sector(0, FS_SECTOR_BASE + FS_SECTMAP_OFFSET + sb.num_smap_sectors, g_fs_buf, SECTOR_SIZE);
+        hd_write_read(HD_OP_WRITE,
+                      1,
+                      g_fs_buf,
+                      SECTOR_SIZE *
+                      (FS_SECTOR_BASE + FS_SECTMAP_OFFSET + sb.num_smap_sectors),
+                      SECTOR_SIZE);
        
         // content of '/' file
         mem_set(g_fs_buf, 0, SECTOR_SIZE); 
         ptr_dir = (dir_entry_t *)g_fs_buf;
         ptr_dir->inode_index = 1;
         vsprint(ptr_dir->name, ".");
-        hd_write_sector(0, sb.first_data_sector_index, g_fs_buf, SECTOR_SIZE);
+        hd_write_read(HD_OP_WRITE,
+                      1,
+                      g_fs_buf,
+                      sb.first_data_sector_index * SECTOR_SIZE,
+                      SECTOR_SIZE);
 }
-#endif
 
 void fs_task(void)
 {
-        hd_msg_t msg = {0};
-        uint64_t i = 0, j = 0;
+        mkfs();
 
-        mem_set(g_fs_buf, 0x4c, SECTOR_SIZE * 30);
-        msg.msg_type = HD_MSG_WRITE;
-        msg.message_buffer = (uint8_t *)g_fs_buf;
-        msg.drv_no = 1;
-        msg.addr = 16;
-        msg.length = SECTOR_SIZE * 30;
-        msg.pid_src = get_current_pid();
-        sync_send(1, (uint8_t *)&msg, sizeof(hd_msg_t));
-        while (1) {
-                sync_receive(PID_ANY, (uint8_t *)&msg, sizeof(hd_msg_t));  // Wait for task done
-                if (str_cmp((uint8_t *)&msg, HD_ACK_WRITE_DONE, str_len(HD_ACK_WRITE_DONE)))
-                        break;
-        }
-
-        mem_set(&msg, 0, sizeof(hd_msg_t));
-        mem_set(g_fs_buf, 0, SECTOR_SIZE * 30);
-        msg.msg_type = HD_MSG_READ;
-        msg.message_buffer = (uint8_t *)g_fs_buf;
-        msg.drv_no = 1;
-        msg.addr = 16;
-        msg.length = SECTOR_SIZE * 30;
-        msg.pid_src = get_current_pid();
-        sync_send(1, (uint8_t *)&msg, sizeof(hd_msg_t));
-        mem_set(&msg, 0, sizeof(hd_msg_t));
-        while (1) {
-                sync_receive(PID_ANY, (uint8_t *)&msg, 10);  // Wait for task done
-                if (str_cmp((uint8_t *)&msg, HD_ACK_READ_DONE, str_len(HD_ACK_READ_DONE)))
-                        break;
-        }
-
-        mem_set((uint8_t *)&msg, 0, sizeof(hd_msg_t));
-        for (i = 0; i < SECTOR_SIZE * 30; i++) {
-                if (g_fs_buf[i] != 0x4c) {
-                        vsprint((uint8_t *)&msg, "i = %d, val = %d", i, g_fs_buf[i]) ;
-                        user_tty_print((uint8_t *)&msg, 160 * 22, 28, -1);
-                        while (1);
-                }
-        }
-
-        user_tty_print("OK Beng", 160, 16, -1);
         for ( ;; ) {
                 *((uint8_t *)0xb8000) += 1;
         }

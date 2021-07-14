@@ -1,13 +1,13 @@
 #ifndef __HD_H_
 #define __HD_H_
 
-#include "io.h"
 #include "common.h"
-#include "string.h"
-#include "interrupt.h"
-#include "tty.h"
 #include "fs.h"
+#include "interrupt.h"
+#include "io.h"
 #include "ipc.h"
+#include "string.h"
+#include "tty.h"
 
 #define MAKE_DEVICE_REG(mode, drv, lba_top4)    \
         (((mode) << 6) | ((drv) << 4) | (lba_top4 & 0xf) | 0xa0)
@@ -101,13 +101,14 @@ typedef struct partition_info {
 /******************************************************************
 * IPC
 *******************************************************************/
-enum hd_message_type {
-        HD_MSG_WRITE = 0xfa,
-        HD_MSG_READ = 0xaf,
-};
+typedef enum hd_operation_type {
+        HD_OP_WRITE = 0xfa,
+        HD_OP_READ = 0xaf,
+        HD_OP_GET_PARTITION_INFO = 0xcc,
+} hd_op_t;
 
 typedef struct hd_message {
-        enum hd_message_type    msg_type;
+        hd_op_t                 operation;
         uint8_t                 *message_buffer;
         uint8_t                 drv_no;
         uint64_t                addr;

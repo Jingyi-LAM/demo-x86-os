@@ -274,19 +274,25 @@ static void hd_dump_partition_info(partition_info_t *ptr_hdinfo)
 /******************************************************************
 * Hard disk initialization and main function Workspace
 *******************************************************************/
+#define HD_DUMP_PARTITION_INFO
+
 static void hd_init(void)
 {
         register_interrupt_handler(46, hd_handler);
         enable_irq_master(2);
         enable_irq_slave(6);
 
+#ifdef HD_DUMP_PARTITION_INFO
         //hd_identify(0);
         //hd_dump_info(g_buf);
+        hd_identify(1);
+        hd_dump_info(g_buf);
 
         //hd_get_partition_info(0);
         //hd_dump_partition_info(&g_partition_info[0]);
-        //hd_get_partition_info(1);
-        //hd_dump_partition_info(&g_partition_info[1]);
+        hd_get_partition_info(1);
+        hd_dump_partition_info(&g_partition_info[1]);
+#endif
 }
 
 static void hd_test(void)
@@ -313,8 +319,8 @@ void hd_task(void)
         for ( ;; ) {
                 mem_set(&msg, 0, sizeof(msg));
                 sync_receive(PID_ANY, (uint8_t *)&msg, sizeof(msg));
-                switch (msg.msg_type) {
-                case HD_MSG_WRITE:
+                switch (msg.operation) {
+                case HD_OP_WRITE:
                         mem_set(g_buf, 0, SECTOR_SIZE);
                         // Handle the first sector
                         if (msg.addr % SECTOR_SIZE) {
@@ -377,7 +383,7 @@ void hd_task(void)
                                   HD_ACK_WRITE_DONE,
                                   str_len(HD_ACK_WRITE_DONE));
                         break;
-                case HD_MSG_READ:
+                case HD_OP_READ:
                         while (msg.length > 0) {
                                 mem_set(g_buf, 0, SECTOR_SIZE);
                                 sector_index = msg.addr / SECTOR_SIZE;

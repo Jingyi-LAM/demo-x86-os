@@ -4,8 +4,9 @@
 #include "common.h"
 #include "hd.h"
 #include "ipc.h"
+#include "string.h"
 
-#define FS_SECTOR_BASE          14336
+#define FS_SECTOR_BASE          4096
 #define FS_SECTOR_SIZE          20480
 
 #define FS_BOOTSEC_OFFSET       0
