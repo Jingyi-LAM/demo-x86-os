@@ -3,6 +3,7 @@
 #include "tty.h"
 #include "hd.h"
 #include "fs.h"
+#include "string.h"
 
 void print_k(void)
 {
@@ -75,6 +76,7 @@ void create_task(void)
                 .stack = tty_stack,
                 .stack_size = 512,
                 .priviledge = 1,
+                .name = "tty",
         };
         create_process(&proc_info);
 
@@ -82,24 +84,29 @@ void create_task(void)
         proc_info.stack = hd_stack;
         proc_info.stack_size = 4096;
         proc_info.priviledge = 1;
+        strcpy(proc_info.name, "hd");
         create_process(&proc_info);
 
         proc_info.f_entry = fs_task;
         proc_info.stack = fs_stack;
         proc_info.stack_size = 2048;
         proc_info.priviledge = 1;
+        strcpy(proc_info.name, "fs");
         create_process(&proc_info);
 
         proc_info.f_entry = demo1;
         proc_info.stack = demo1_stack;
         proc_info.stack_size = 256;
         proc_info.priviledge = 3;
+        strcpy(proc_info.name, "demo1");
         create_process(&proc_info);
 
         proc_info.f_entry = demo2;
         proc_info.stack = demo2_stack;
         proc_info.stack_size = 256;
         proc_info.priviledge = 3;
+        strcpy(proc_info.name, "demo2");
         create_process(&proc_info);
+
 }
 
