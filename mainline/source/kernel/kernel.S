@@ -22,7 +22,7 @@ desc_tss:
 desc_ldt:
         .long   0, 0
 
-gdtptr:
+gdtmeta:
         .word   . - desc_gdt - 1
         .long   desc_gdt
 
@@ -44,7 +44,7 @@ sel_tss         = desc_tss      - desc_gdt
 .code32
 .section        .text
 _start:
-        lgdt    gdtptr
+        lgdt    gdtmeta
 
         movw    $sel_sysdata,   %ax
         movw    %ax,            %ds
@@ -53,9 +53,9 @@ _start:
         movw    %ax,            %fs
         movl    $kstack,        %esp 
 
-        sgdt    gdt_base_addr
-        call    gdt_init
-        lgdt    gdt_base_addr
+        sgdt    gdt_meta
+        call    reorganize_gdt
+        lgdt    gdt_meta
 
         # Initialize interrupt vector table and test
         call    idt_init

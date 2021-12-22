@@ -3,18 +3,18 @@
 
 #include "typedef.h"
 
-#define RPL_SYS                 0
-#define RPL_USER                3
+#define RPL_SYS                 (0x0)
+#define RPL_USER                (0x3)
 
-#define SEGTYPE_LDT             0x2
-#define SEGTYPE_386TSS          0x9
-#define SEGTYPE_386INT          0xe
+#define SEGTYPE_LDT             (0x2)
+#define SEGTYPE_386TSS          (0x9)
+#define SEGTYPE_386INT          (0xe)
 
-#define DESC_TYPE_SYS           0
-#define DESC_TYPE_CODE_DATA     1
+#define DESC_TYPE_SYS           (0x0)
+#define DESC_TYPE_CODE_DATA     (0x1)
 
-#define PRESENT_NOT_MEMORY      0
-#define PRESENT_IN_MEMORY       1
+#define PRESENT_NOT_MEMORY      (0x0)
+#define PRESENT_IN_MEMORY       (0x1)
 
 
 typedef struct sw_descriptor {
