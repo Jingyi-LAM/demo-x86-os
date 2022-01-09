@@ -1,3 +1,4 @@
+#include "debug.h"
 #include "fs.h"
 #include "hd.h"
 #include "heap.h"
@@ -8,45 +9,19 @@
 #include "string.h"
 #include "tty.h"
 #include "typedef.h"
+#include "kernel.h"
 
 void print_k(void)
 {
-        int8_t buf[12] = {"Jingyi"};
-        uint32_t offset = 120;
-        uint32_t length = 12;
-        uint8_t color = TTY_BG_GRAY | TTY_FG_LIGHTCYAN;
+        char show[] = "Jingyi, Hahaha";
+        int len = strlen(show);
 
-        __asm__ __volatile__(
-                "movl %0,       %%eax   \n\t"
-                "movl %1,       %%ebx   \n\t"
-                "movl %2,       %%ecx   \n\t"
-                "movl %3,       %%edx   \n\t"
-                "movl %4,       %%edi   \n\t"
-                "int  $100              \n\t"
-                :
-                :"g"(buf), "g"(offset), "g"(length), "g"(color), "g"(SYSCALL_TTY_WRITE)
-                :"eax", "ebx", "ecx", "edx", "edi"
-        );
+        tty_display(120, len, show, TTY_BG_GRAY | TTY_FG_LIGHTCYAN);
 }
 
 void print_f(void)
 {
-        int8_t buf[12] = {"Hello"};
-        int32_t offset = -1;
-        uint32_t length = 12;
-        uint8_t color = -1;
-
-        __asm__ __volatile__(
-                "movl %0,       %%eax   \n\t"
-                "movl %1,       %%ebx   \n\t"
-                "movl %2,       %%ecx   \n\t"
-                "movl %3,       %%edx   \n\t"
-                "movl %4,       %%edi   \n\t"
-                "int  $100              \n\t"
-                :
-                :"g"(buf), "g"(offset), "g"(length), "g"(color), "g"(SYSCALL_TTY_WRITE)
-                :"eax", "ebx", "ecx", "edx", "edi"
-        );
+        weak_assert(0);
 }
 
 void demo1(void)
@@ -69,16 +44,16 @@ void demo2(void)
 
 void create_task(void)
 {
-        int8_t *tty_stack = rheap_malloc(512);
+        int8_t *tty_stack = rheap_malloc(4096);
         int8_t *hd_stack = rheap_malloc(4096);
         int8_t *fs_stack = rheap_malloc(2048);
-        int8_t *demo1_stack = rheap_malloc(256);
-        int8_t *demo2_stack = rheap_malloc(256);
+        int8_t *demo1_stack = rheap_malloc(1024);
+        int8_t *demo2_stack = rheap_malloc(1024);
 
         proc_info_t proc_info = {
                 .f_entry = tty_task,
                 .stack = tty_stack,
-                .stack_size = 512,
+                .stack_size = 4096,
                 .priviledge = 1,
                 .name = "tty",
         };
@@ -100,17 +75,16 @@ void create_task(void)
 
         proc_info.f_entry = demo1;
         proc_info.stack = demo1_stack;
-        proc_info.stack_size = 256;
+        proc_info.stack_size = 1024;
         proc_info.priviledge = 3;
         strcpy(proc_info.name, "demo1");
         create_process(&proc_info);
 
         proc_info.f_entry = demo2;
         proc_info.stack = demo2_stack;
-        proc_info.stack_size = 256;
+        proc_info.stack_size = 1024;
         proc_info.priviledge = 3;
         strcpy(proc_info.name, "demo2");
         create_process(&proc_info);
-
 }
 

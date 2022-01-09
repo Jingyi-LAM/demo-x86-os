@@ -31,6 +31,7 @@ typedef struct message_control_block {
         int8_t                          mcb_status;
 } mcb_t;
 
+extern int32_t g_syscall_sync_ipc_idx;
 
 void ipc_init(void);
 void sync_send(uint32_t pid_target, uint8_t *buffer, uint32_t size);

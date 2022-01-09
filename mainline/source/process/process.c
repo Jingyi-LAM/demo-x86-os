@@ -227,7 +227,7 @@ void process_pre_init(void)
                 *((uint8_t *)process_table + i) = 0;
 
         register_interrupt_handler(0x20, process_schedule);
+        // Mapping: irq 0x20 - master 0, Timer Interrupt
         enable_irq_master(0);
 }
-
 

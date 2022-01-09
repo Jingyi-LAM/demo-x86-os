@@ -13,6 +13,7 @@ tty_cmd_buf_t g_tty_cmd_buffer;
 
 static uint32_t current_row = 0;
 static uint32_t current_column = 0;
+int32_t g_syscall_tty_write_index = 0;
 
 static void tty_set_cursor(uint8_t color)
 {
@@ -69,7 +70,6 @@ static void tty_newline(void)
         current_row += 1;
         current_column = 0;
 }
-
 
 static void tty_clear_screen(void)
 {
@@ -198,7 +198,7 @@ void tty_task(void)
         
         keyboard_init();
         tty_init_screen();
-        register_syscall_handler(SYSCALL_TTY_WRITE, (void (*)(void))tty_write);
+        g_syscall_tty_write_index = register_syscall_handler((void (*)(void))tty_write);
         tty_register_command("clear", tty_clear_screen);
 
         for ( ;; ) {
@@ -207,3 +207,17 @@ void tty_task(void)
         }
 }
 
+void tty_display(uint32_t offset, uint32_t length, uint8_t *buf, uint8_t color)
+{
+        __asm__ __volatile__(
+                "movl %0,       %%eax   \n\t"
+                "movl %1,       %%ebx   \n\t"
+                "movl %2,       %%ecx   \n\t"
+                "movl %3,       %%edx   \n\t"
+                "movl %4,       %%edi   \n\t"
+                "int  $100              \n\t"
+                :
+                :"g"(buf), "g"(offset), "g"(length), "g"(color), "g"(g_syscall_tty_write_index)
+                :"eax", "ebx", "ecx", "edx", "edi"
+        );
+}

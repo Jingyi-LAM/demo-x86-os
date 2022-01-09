@@ -2,10 +2,22 @@
 #include "descriptor.h"
 #include "interrupt.h"
 #include "string.h"
+#include "tty.h"
 
-uint8_t idt_base_addr[6];
+#define INT_M_CTL               (0x20)
+#define INT_M_CTLMASK           (0x21)
+#define INT_S_CTL               (0xA0)
+#define INT_S_CTLMASK           (0xA1)
+#define	INT_VECTOR_IRQ0         (0x20)
+#define	INT_VECTOR_IRQ8         (0x28)
+
+#define MAX_INTERRUPT_COUNT     (128)
+#define MAX_SYSCALL_COUNT       (128)
+
+uint8_t idt_meta[6];
 static hw_gate_t idt[MAX_INTERRUPT_COUNT];
 volatile int k_reenter = -1;
+volatile uint8_t available_syscall_index = 0;
 static void (*vector_table[MAX_INTERRUPT_COUNT])(void) = {
         excp000, excp001, excp002, excp003,
         excp004, excp005, excp006, excp007,
@@ -23,7 +35,6 @@ static void (*vector_table[MAX_INTERRUPT_COUNT])(void) = {
 void (*interrupt_handler_table[MAX_INTERRUPT_COUNT])(void);
 void (*syscall_handler_table[MAX_SYSCALL_COUNT])(void);
 
-
 void idt_init(void)
 {       
         sw_gate_t gate = {0}; 
@@ -40,13 +51,11 @@ void idt_init(void)
                 write_gate(&idt[i], &gate);
         }
 
-
         gate.handler_entry_offset = (uint32_t)syscall;
         write_gate(&idt[100], &gate);
-      
 
-        *(uint16_t *)idt_base_addr = sizeof(hw_gate_t) * MAX_INTERRUPT_COUNT;
-        *((uint32_t *)&idt_base_addr[2]) = (uint32_t)&idt;
+        *(uint16_t *)idt_meta = sizeof(hw_gate_t) * MAX_INTERRUPT_COUNT;
+        *((uint32_t *)&idt_meta[2]) = (uint32_t)&idt;
 }
 
 
@@ -68,14 +77,14 @@ void exception_handler(int vector_no)
                 "#SS Stack-Segment Fault",
                 "#GP General Protection",
                 "#PF Page Fault",
-                "#IR(Intel reserved. Do not use.)",
+                "#IR (Intel reserved. Do not use.)",
                 "#MF x87 FPU Floating-Point Error (Math Fault)",
                 "#AC Alignment Check",
                 "#MC Machine Check",
                 "#XF SIMD Floating-Point Exception"
 	};
 
-        ((void (*)(uint8_t *, uint32_t))(*syscall_handler_table[SYSCALL_TTY_WRITE]))(err_msg[vector_no], strlen(err_msg[vector_no]));
+        ((void (*)(uint8_t *, uint32_t))(*syscall_handler_table[g_syscall_tty_write_index]))(err_msg[vector_no], strlen(err_msg[vector_no]));
 }
 
 static void out_byte(uint16_t port, uint8_t data)
@@ -110,12 +119,14 @@ void register_interrupt_handler(uint32_t interrupt_no, void (*handler)())
         interrupt_handler_table[interrupt_no] = handler;
 }
 
-void register_syscall_handler(uint32_t syscall_no, void (*handler)())
+int32_t register_syscall_handler(void (*handler)())
 {
-        if (weak_assert(syscall_no <= MAX_SYSCALL_COUNT))
-                return;
+        available_syscall_index += 1;
+        if (weak_assert(available_syscall_index <= MAX_SYSCALL_COUNT))
+                return -1;
 
-        syscall_handler_table[syscall_no] = handler;
+        syscall_handler_table[available_syscall_index] = handler;
+        return available_syscall_index;
 }
 
 void enable_irq_master(int irq)

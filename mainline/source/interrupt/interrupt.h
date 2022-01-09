@@ -3,20 +3,6 @@
 
 #include "typedef.h"
 
-#define INT_M_CTL               0x20
-#define INT_M_CTLMASK           0x21
-#define INT_S_CTL               0xA0
-#define INT_S_CTLMASK           0xA1
-#define	INT_VECTOR_IRQ0         0x20
-#define	INT_VECTOR_IRQ8         0x28
-
-#define MAX_INTERRUPT_COUNT     128
-#define MAX_SYSCALL_COUNT       128
-
-// Syscall List
-#define SYSCALL_SYNC_IPC        1
-#define SYSCALL_TTY_WRITE       2
-
 void excp000(void);
 void excp001(void);
 void excp002(void);
@@ -71,7 +57,7 @@ void idt_init(void);
 void chip8259a_init(void);
 
 void register_interrupt_handler(uint32_t interrupt_no, void (*handler)());
-void register_syscall_handler(uint32_t syscall_no, void (*handler)());
+int32_t register_syscall_handler(void (*handler)());
 
 void enable_irq_master(int32_t irq);
 void disable_irq_master(int32_t irq);

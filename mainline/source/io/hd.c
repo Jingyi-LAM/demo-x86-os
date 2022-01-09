@@ -4,6 +4,7 @@
 #include "ipc.h"
 #include "memory.h"
 #include "string.h"
+#include "tty.h"
 
 static uint8_t g_buf[SECTOR_SIZE * 4] = {0};
 static int8_t g_zero_padding[SECTOR_SIZE] = {0};
@@ -24,7 +25,7 @@ void user_tty_print(uint8_t *buf,
                 "int  $100              \n\t"
                 :
                 :"g"(buf), "g"(position), "g"(len),
-                 "g"(color), "g"(SYSCALL_TTY_WRITE)
+                 "g"(color), "g"(g_syscall_tty_write_index)
                 :"eax", "ebx", "ecx", "edx", "edi"
         );
 }

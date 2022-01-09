@@ -52,15 +52,14 @@
         movw    %ss,            %dx
         movw    %dx,            %ds
         movw    %dx,            %es
-        
-        
+
         movb    \irq_type,      %al
         cmpb    $0,             %al
         je      1f
         jne     2f
 
 
-1:	
+1:
         in      $0x21,          %al     # ignore current interrupt (master)
         movb    \irq_no,        %cl
         subb    $32,            %cl
@@ -77,7 +76,7 @@
         shl     %cl,            %bl
         orb     %bl,            %al
         out     %al,            $0xa1
-        
+
         movb    $0x20,          %al
         out     %al,            $0x20
         nop
@@ -97,7 +96,7 @@
 
         movb    $0x20,          %al
         outb    %al,            $0x20
-        
+
         movb    \irq_type,      %al
         cmp     $0,             %al
         je      4f
@@ -245,21 +244,21 @@ syscall:
         pushl   %es
         pushl   %fs
         pushl   %gs
-        
+
         movl    %edx,           %esi
         movw    %ss,            %dx
         movw    %dx,            %ds
         movw    %dx,            %es
         movl    %esi,           %edx
-        
+
         movl    %esp,           %esi
-        
+
         incl    k_reenter
         cmpl    $0,             k_reenter
         jne     1f
-        
+
         movl    $kstack,        %esp
-        
+
         push    %esi
 
         push    %edx
@@ -270,7 +269,7 @@ syscall:
 
         addl    $16,            %esp
         popl    %esi
-        
+
         movl    %eax,           44(%esi) # return value of syscall handler function
         movl    ptr_proc_run,   %esp
 1:

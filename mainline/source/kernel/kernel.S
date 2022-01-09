@@ -59,7 +59,7 @@ _start:
 
         # Initialize interrupt vector table and test
         call    idt_init
-        lidt    idt_base_addr
+        lidt    idt_meta
         call    chip8259a_init
 
         # Initialize tss

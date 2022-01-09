@@ -93,4 +93,3 @@ uint32_t ldt_init(void)
 
         return get_desc_selector(ptr_gdt_desc);
 }
-

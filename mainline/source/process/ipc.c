@@ -5,6 +5,7 @@
 #include "process.h"
 
 static mcb_t mcb_table[MAX_MCB_COUNT] = {0};
+int32_t g_syscall_sync_ipc_idx = 0;
 
 mcb_t *get_available_mcb(void)
 {
@@ -70,7 +71,7 @@ void sync_send(uint32_t pid_target, uint8_t *buffer, uint32_t size)
                 "movl %1,       %%edi   \n\t"
                 "int  $100              \n\t"
                 :
-                :"g"(ptr_mcb), "g"(SYSCALL_SYNC_IPC)
+                :"g"(ptr_mcb), "g"(g_syscall_sync_ipc_idx)
                 :"eax", "ebx", "edi"
         );
 }
@@ -107,7 +108,7 @@ void sync_receive(uint32_t pid_src, uint8_t *buffer, uint32_t size)
                 "movl %1,       %%edi   \n\t"
                 "int  $100              \n\t"
                 :
-                :"g"(ptr_mcb), "g"(SYSCALL_SYNC_IPC)
+                :"g"(ptr_mcb), "g"(g_syscall_sync_ipc_idx)
                 :"eax", "ebx", "edi"
         );
 }
@@ -220,7 +221,7 @@ void sys_sendrecv(mcb_t *ptr_mcb, uint32_t message_type)
 void ipc_init(void)
 {
         memset((uint8_t *)mcb_table, 0, sizeof(mcb_t) * MAX_MCB_COUNT); 
-        register_syscall_handler(SYSCALL_SYNC_IPC, sys_sendrecv);
+        g_syscall_sync_ipc_idx = register_syscall_handler(sys_sendrecv);
 }
 
 

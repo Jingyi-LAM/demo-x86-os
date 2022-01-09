@@ -55,6 +55,9 @@ typedef struct tty_command_buffer {
         uint32_t current_pos;
 } tty_cmd_buf_t;
 
+extern int32_t g_syscall_tty_write_index;
+
 void tty_register_command(const int8_t *cmd, void (*handler)(void));
 void tty_task(void);
+void tty_display(uint32_t offset, uint32_t length, uint8_t *buf, uint8_t color);
 #endif
