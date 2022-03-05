@@ -42,7 +42,7 @@
 #define TTY_BG_YELLOW           (0xe << 4)
 #define TTY_BG_WHITE            (0xf << 4)
 
-#define TTY_DEFAULT_COLOR       (TTY_BG_GRAY | TTY_FG_LIGHTCYAN)
+#define TTY_DEFAULT_COLOR       (TTY_BG_GRAY | TTY_FG_YELLOW)
 
 typedef struct tty_command_handler {
         int8_t   cmd[MAX_CMD_SIZE];
@@ -60,4 +60,5 @@ extern int32_t g_syscall_tty_write_index;
 void tty_register_command(const int8_t *cmd, void (*handler)(void));
 void tty_task(void);
 void tty_display(uint32_t offset, uint32_t length, uint8_t *buf, uint8_t color);
+void tty_newline(void);
 #endif

@@ -6,10 +6,16 @@
 #include "string.h"
 #include "tty.h"
 
+#define TTY_NEXT_LINE                                   \
+        do {                                            \
+                dump_row_pointer += TTY_WIN_WIDTH * 2;  \
+        } while (0);
+
 static uint8_t g_buf[SECTOR_SIZE * 4] = {0};
 static int8_t g_zero_padding[SECTOR_SIZE] = {0};
 static volatile uint8_t g_is_busy = 0;
 static partition_info_t g_partition_info[NUM_MAX_DRIVER] = {0};
+static int dump_row_pointer = 0;
 
 void user_tty_print(uint8_t *buf,
                            uint32_t position,
@@ -184,10 +190,16 @@ static void hd_dump_info(uint8_t *ptr_hd_info)
         }
         model_string[i] = 0;
 
-        vsprint(buf, "Serial Number: %s, Model: %s",
-                &serial_number[6],
-                &model_string[26]);
-        user_tty_print(buf, 160, 128, -1);
+
+        memset(buf, 0, 128);
+        vsprint(buf, "* Serial Number:     %s", &serial_number[6]);
+        user_tty_print(buf, dump_row_pointer, 128, -1);
+        TTY_NEXT_LINE;
+
+        memset(buf, 0, 128);
+        vsprint(buf, "* Model:             %s", &model_string[26]);
+        user_tty_print(buf, dump_row_pointer, 128, -1);
+        TTY_NEXT_LINE;
 }
 
 static void hd_get_logical_info(uint8_t drv_no, uint8_t primary_no)
@@ -248,19 +260,18 @@ static void hd_dump_partition_info(partition_info_t *ptr_hdinfo)
 {
         int32_t i = 0;
         uint8_t buf[128] = {0};
-        static int32_t line = 2;
 
         for (i = 0; i < NUM_PRIMARY_PER_DRIVER; i++) {
                 if (ptr_hdinfo->primary[i].size == 0)
                         continue;
                 
                 memset(buf, 0, 128);
-                vsprint(buf, "Found primary partition: id=%d, base_sector=%d, size=%d",
+                vsprint(buf, "* Primary Partition: id: %d, Size: %d, Base Sector: %d",
                         i,
-                        ptr_hdinfo->primary[i].base_sect,
-                        ptr_hdinfo->primary[i].size);
-                user_tty_print(buf, 160 * line, 128, -1);
-                line += 1;
+                        ptr_hdinfo->primary[i].size,
+                        ptr_hdinfo->primary[i].base_sect);
+                user_tty_print(buf, dump_row_pointer, 128, -1);
+                TTY_NEXT_LINE;
         }
 
         for (i = 0; i < NUM_LOGICAL_PER_DRIVER; i++) {
@@ -268,12 +279,12 @@ static void hd_dump_partition_info(partition_info_t *ptr_hdinfo)
                         continue;
 
                 memset(buf, 0, 128);
-                vsprint(buf, "Found logical partition: id=%d, base_sector=%d, size=%d",
+                vsprint(buf, "* Logical Partition: id: %d, Size: %d, Base Sector: %d",
                         i,
-                        ptr_hdinfo->logical[i].base_sect,
-                        ptr_hdinfo->logical[i].size);
-                user_tty_print(buf, 160 * line, 128, -1);
-                line += 1;
+                        ptr_hdinfo->logical[i].size,
+                        ptr_hdinfo->logical[i].base_sect);
+                user_tty_print(buf, dump_row_pointer, 128, -1);
+                TTY_NEXT_LINE;
         }
 }
 
@@ -284,6 +295,8 @@ static void hd_dump_partition_info(partition_info_t *ptr_hdinfo)
 
 static void hd_init(void)
 {
+        uint8_t buf[128] = {0};
+
         register_interrupt_handler(46, hd_handler);
         enable_irq_master(2);
         enable_irq_slave(6);
@@ -292,24 +305,42 @@ static void hd_init(void)
         //hd_identify(0);
         //hd_dump_info(g_buf);
         hd_identify(1);
+
+        memset(buf, 0, 128);
+        vsprint(buf, "********************* Dump HD Info **************************");
+        user_tty_print(buf, dump_row_pointer, 128, -1);
+        TTY_NEXT_LINE;
+
         hd_dump_info(g_buf);
 
         //hd_get_partition_info(0);
         //hd_dump_partition_info(&g_partition_info[0]);
         hd_get_partition_info(1);
         hd_dump_partition_info(&g_partition_info[1]);
+
+        memset(buf, 0, 128);
+        vsprint(buf, "*************************************************************");
+        user_tty_print(buf, dump_row_pointer, 128, -1);
+        TTY_NEXT_LINE;
 #endif
 }
 
-static void hd_test(void)
+int hd_test(void)
 {
-        memset(g_buf, 0, SECTOR_SIZE);
-        vsprint(g_buf, "Test for hd write/read done"); 
+        int i = 0;
+
+        memset(g_buf, 0x1f, SECTOR_SIZE);
         hd_write_sector(0, 1000, g_buf, SECTOR_SIZE);
 
         memset(g_buf, 0, SECTOR_SIZE);
         hd_read_sector(0, 1000, g_buf, SECTOR_SIZE);
-        user_tty_print(g_buf, 160 * 24, SECTOR_SIZE, -1);
+
+        for (i = 0; i < SECTOR_SIZE; i++) {
+                if (g_buf[i] != 0x1f)
+                        return -1;
+        }
+
+        return 0;
 }
 
 void hd_task(void)

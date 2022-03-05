@@ -111,5 +111,6 @@ typedef struct hd_message {
 } hd_msg_t;
 
 void hd_task(void);
+int hd_test(void);
 #endif
 

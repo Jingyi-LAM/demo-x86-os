@@ -8,6 +8,9 @@
 #include "string.h"
 #include "tty.h"
 
+#define TTY_INPUT_BG_COLOR    TTY_BG_GRAY
+#define TTY_INPUT_FG_COLOR    TTY_FG_LIGHTCYAN
+
 tty_cmd_handler_t *g_tty_cmd_list;
 tty_cmd_buf_t g_tty_cmd_buffer;
 
@@ -47,7 +50,7 @@ static void tty_show_string(const int8_t *str, uint8_t color)
                         current_row += 1;
                 }
         }
-        tty_set_cursor(TTY_BG_GRAY | TTY_FG_LIGHTCYAN);
+        tty_set_cursor(TTY_INPUT_BG_COLOR | TTY_INPUT_FG_COLOR);
 }
 
 static void tty_show_char(int8_t ch, uint8_t color)
@@ -55,17 +58,17 @@ static void tty_show_char(int8_t ch, uint8_t color)
         uint16_t *p = (uint16_t *)(VRAM_BASE + TTY_WIN_WIDTH * 2 * current_row
                         + current_column);
 
-        *p = ch | ((TTY_BG_GRAY | TTY_FG_LIGHTCYAN) << 8);
+        *p = ch | ((TTY_INPUT_BG_COLOR | TTY_INPUT_FG_COLOR) << 8);
 
         current_column += 2;
         if (current_column >= TTY_WIN_WIDTH * 2) {
                 current_column = 0;
                 current_row += 1;
         }
-        tty_set_cursor(TTY_BG_GRAY | TTY_FG_LIGHTCYAN);
+        tty_set_cursor(TTY_INPUT_BG_COLOR | TTY_INPUT_FG_COLOR);
 }
 
-static void tty_newline(void)
+void tty_newline(void)
 {
         current_row += 1;
         current_column = 0;
@@ -77,7 +80,7 @@ static void tty_clear_screen(void)
         uint32_t i = 0;
 
         for (i = 0; i < TTY_WIN_WIDTH * TTY_WIN_HEIGHT; i++) {
-                *(p + i) = TTY_BG_GRAY << 8;
+                *(p + i) = TTY_INPUT_BG_COLOR << 8;
         }
 
         current_column = 0;
@@ -167,8 +170,9 @@ static void tty_init_screen(void)
         memset(&g_tty_cmd_buffer, 0, sizeof(g_tty_cmd_buffer));
 
         tty_clear_screen();
+        current_row = 8;
         tty_newline();
-        tty_show_string("Jingyi@PCM-X01:# ", TTY_BG_GRAY | TTY_FG_YELLOW);
+        tty_show_string("Jingyi@PCM-X01:# ", TTY_INPUT_BG_COLOR | TTY_FG_YELLOW);
 }
 
 static void tty_input_handler(int8_t ch)
@@ -180,14 +184,14 @@ static void tty_input_handler(int8_t ch)
                 tty_cmd_execute();
                 tty_newline();
                 tty_show_string("Jingyi@PCM-X01:# ",
-                                TTY_BG_GRAY | TTY_FG_YELLOW);
+                                TTY_INPUT_BG_COLOR | TTY_FG_YELLOW);
                 break;
         default:
                 g_tty_cmd_buffer.buffer[g_tty_cmd_buffer.current_pos] = ch;
                 g_tty_cmd_buffer.current_pos += 1;
                 if (g_tty_cmd_buffer.current_pos > MAX_CMD_SIZE)
                         g_tty_cmd_buffer.current_pos = 0;
-                tty_show_char(ch, TTY_BG_GRAY | TTY_FG_LIGHTCYAN);
+                tty_show_char(ch, TTY_INPUT_BG_COLOR | TTY_INPUT_FG_COLOR);
                 break;
         }
 }

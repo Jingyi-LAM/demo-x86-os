@@ -5,28 +5,39 @@
 #include "interrupt.h"
 #include "ipc.h"
 #include "keyboard.h"
+#include "memory.h"
 #include "process.h"
 #include "string.h"
 #include "tty.h"
 #include "typedef.h"
 #include "kernel.h"
 
-void print_k(void)
+void cmd_say_hello(void)
 {
-        char show[] = "Jingyi, Hahaha";
+        char show[] = "Hello~";
         int len = strlen(show);
 
-        tty_display(120, len, show, TTY_BG_GRAY | TTY_FG_LIGHTCYAN);
+        tty_newline();
+        tty_display(-1, len, show, TTY_BG_GRAY | TTY_FG_LIGHTCYAN);
 }
 
-void print_f(void)
+void cmd_hd_test(void)
 {
-        weak_assert(0);
+        char buf[128] = {0};
+        int len = 0;
+        int ret = hd_test();
+
+        memset(buf, 0, 128);
+        vsprint(buf, "HD test done, result: %s", ret ? "failed" : "pass");
+        len = strlen(buf);
+
+        tty_newline();
+        tty_display(-1, len, buf, TTY_BG_GRAY | TTY_FG_LIGHTCYAN);
 }
 
 void demo1(void)
 {
-        tty_register_command("demo1", print_k);
+        tty_register_command("say hello", cmd_say_hello);
 
         for ( ;; ) {
 
@@ -35,7 +46,7 @@ void demo1(void)
 
 void demo2(void)
 {
-        tty_register_command("demo2", print_f);
+        tty_register_command("hd test", cmd_hd_test);
 
         for ( ;; ) {
 

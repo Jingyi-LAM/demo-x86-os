@@ -118,7 +118,7 @@ void mkfs(void)
         sb.dir_entry_inode_offset  = OF_OFFSET(dir_entry_t, inode_index),
         sb.dir_entry_name_offset   = OF_OFFSET(dir_entry_t, name),
 
-        dump_sb_info(&sb);
+        //dump_sb_info(&sb);
         memset(g_fs_buf, 0x90, SECTOR_SIZE);
         memcpy(g_fs_buf, &sb, SUPER_BLOCK_SIZE);
         hd_write_read(HD_OP_WRITE,
@@ -189,6 +189,5 @@ void fs_task(void)
         mkfs();
 
         for ( ;; ) {
-                *((uint8_t *)0xb8000) += 1;
         }
 }
