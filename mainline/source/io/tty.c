@@ -36,8 +36,7 @@ static void tty_set_cursor(uint8_t color)
 static void tty_show_string(const int8_t *str, uint8_t color)
 {
         const int8_t *ptr_str = str;
-        uint16_t *p = (uint16_t *)(VRAM_BASE + TTY_WIN_WIDTH * 2 * current_row
-                         + current_column);
+        uint16_t *p = (uint16_t *)(VRAM_BASE + TTY_WIN_WIDTH * 2 * current_row + current_column);
 
         while (*ptr_str != '\0') {
                 *p = *ptr_str | (color << 8);
@@ -94,8 +93,7 @@ static void tty_write(uint8_t *buf, int32_t offset, uint32_t length, int8_t colo
         uint32_t i = 0;
 
         if (offset < 0)
-                p = (uint16_t *)(VRAM_BASE + TTY_WIN_WIDTH * 2 * current_row
-                        + current_column);
+                p = (uint16_t *)(VRAM_BASE + TTY_WIN_WIDTH * 2 * current_row + current_column);
         else
                 p = (uint16_t *)(VRAM_BASE + offset);
 
@@ -106,6 +104,9 @@ static void tty_write(uint8_t *buf, int32_t offset, uint32_t length, int8_t colo
                 return;
 
         for (i = 0; i < length; i++) {
+                if (*ptr_str == 0)
+                        break;
+
                 *p = *ptr_str | (color << 8);
                 p += 1;
                 ptr_str += 1;
@@ -152,9 +153,7 @@ static void tty_cmd_execute(void)
         tty_cmd_handler_t *cmd_handler = g_tty_cmd_list;
 
         while (cmd_handler) {
-                if (strcmp(cmd_handler->cmd,
-                            g_tty_cmd_buffer.buffer,
-                            MAX_CMD_SIZE)) {
+                if (strcmp(cmd_handler->cmd, g_tty_cmd_buffer.buffer, MAX_CMD_SIZE)) {
                         cmd_handler->handler();
                         break;
                 }
@@ -170,8 +169,7 @@ static void tty_init_screen(void)
         memset(&g_tty_cmd_buffer, 0, sizeof(g_tty_cmd_buffer));
 
         tty_clear_screen();
-        current_row = 8;
-        tty_newline();
+        current_row = 0;
         tty_show_string("Jingyi@PCM-X01:# ", TTY_INPUT_BG_COLOR | TTY_FG_YELLOW);
 }
 
@@ -183,8 +181,7 @@ static void tty_input_handler(int8_t ch)
                 g_tty_cmd_buffer.current_pos = 0;
                 tty_cmd_execute();
                 tty_newline();
-                tty_show_string("Jingyi@PCM-X01:# ",
-                                TTY_INPUT_BG_COLOR | TTY_FG_YELLOW);
+                tty_show_string("Jingyi@PCM-X01:# ", TTY_INPUT_BG_COLOR | TTY_FG_YELLOW);
                 break;
         default:
                 g_tty_cmd_buffer.buffer[g_tty_cmd_buffer.current_pos] = ch;

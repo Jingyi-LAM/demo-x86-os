@@ -21,18 +21,13 @@ void cmd_say_hello(void)
         tty_display(-1, len, show, TTY_BG_GRAY | TTY_FG_LIGHTCYAN);
 }
 
-void cmd_hd_test(void)
+void cmd_say_goodbye(void)
 {
-        char buf[128] = {0};
-        int len = 0;
-        int ret = hd_test();
-
-        memset(buf, 0, 128);
-        vsprint(buf, "HD test done, result: %s", ret ? "failed" : "pass");
-        len = strlen(buf);
+        char show[] = "Goodbye~";
+        int len = strlen(show);
 
         tty_newline();
-        tty_display(-1, len, buf, TTY_BG_GRAY | TTY_FG_LIGHTCYAN);
+        tty_display(-1, len, show, TTY_BG_GRAY | TTY_FG_LIGHTCYAN);
 }
 
 void demo1(void)
@@ -46,7 +41,7 @@ void demo1(void)
 
 void demo2(void)
 {
-        tty_register_command("hd test", cmd_hd_test);
+        tty_register_command("say goodbye", cmd_say_goodbye);
 
         for ( ;; ) {
 
@@ -56,7 +51,7 @@ void demo2(void)
 void create_task(void)
 {
         int8_t *tty_stack = rheap_malloc(4096);
-        int8_t *hd_stack = rheap_malloc(4096);
+        int8_t *hd_stack = rheap_malloc(20480);
         int8_t *fs_stack = rheap_malloc(2048);
         int8_t *demo1_stack = rheap_malloc(1024);
         int8_t *demo2_stack = rheap_malloc(1024);
@@ -72,7 +67,7 @@ void create_task(void)
 
         proc_info.f_entry = hd_task;
         proc_info.stack = hd_stack;
-        proc_info.stack_size = 4096;
+        proc_info.stack_size = 20480;
         proc_info.priviledge = 1;
         strcpy(proc_info.name, "hd");
         create_process(&proc_info);

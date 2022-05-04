@@ -7,6 +7,8 @@
 #include "string.h"
 #include "tty.h"
 
+#define SECTOR_SIZE     (512)
+
 static uint8_t g_fs_buf[SECTOR_SIZE * 30] = {0};
 
 static void user_tty_print(uint8_t *buf,

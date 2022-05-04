@@ -1,7 +1,7 @@
 #include "memory.h"
 
 
-void memcpy(void *dest, void *src, uint32_t size)
+void memcpy(void *dest, const void *src, uint32_t size)
 {
         uint32_t i = 0;
 
