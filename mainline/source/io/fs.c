@@ -87,8 +87,8 @@ static void hd_write_read(hd_op_t type,
                              sizeof(hd_msg_t));  // Wait for task done
 
                 if (strcmp((uint8_t *)&msg,
-                            HD_ACK_WRITE_DONE,
-                            strlen(HD_ACK_WRITE_DONE)))
+                            HD_ACK_CMD_DONE,
+                            strlen(HD_ACK_CMD_DONE)))
                         break;
         }
 

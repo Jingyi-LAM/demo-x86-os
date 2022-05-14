@@ -40,15 +40,26 @@ int strlen(const char *src)
         return i;
 }
 
-static int hex2string(char *dest, int data)
+int hex2string(char *dest, int data, char is_need_fill)
 {
         int i = 0, j = 0;
         unsigned char tmp = 0;
         unsigned char not_zero = 0;
 
+        if (data == 0) {
+                if (is_need_fill) {
+                        for (i = 0; i < 8; i++)
+                                *(dest + i) = '0';
+                        return 8;
+                } else {
+                        *dest = '0';
+                        return 1;
+                }
+        }
+
         for (i = 0; i < sizeof(int) * 2; i++) {
                 tmp = data >> (28 - i * 4) & 0xf;
-                if (!tmp && !not_zero)
+                if (!tmp && !not_zero && !is_need_fill)
                         continue;
 
                 *dest = tmp >= 10 ? tmp - 10 + 'A' : tmp + '0';
@@ -61,7 +72,7 @@ static int hex2string(char *dest, int data)
         return j;
 }
 
-static int dec2string(char *dest, int data)
+int dec2string(char *dest, int data)
 {
         int input = data;
         int i = 0, j = 0;
@@ -97,6 +108,7 @@ int vsprint(char *dest, const char* fmt, ...)
         char buf[512] = { 0 };
         int i = 0;
         int ret = 0;
+        int flag64 = 0;
 
         while (*fmt != '\0') {
                 if (*fmt != '%') {
@@ -107,20 +119,33 @@ int vsprint(char *dest, const char* fmt, ...)
                 }
 
                 fmt += 1;
+                if (*fmt == 'l') {      // Support %lx only now
+                        flag64 = 1;
+                        fmt += 1;
+                }
+
                 switch (*fmt) {
                 case 'x':
-                        ret = hex2string(buf + i, *((int*)ptr_arg));
-                        ptr_arg = (char*)ptr_arg + 4;
-                        i += ret;
+                        if (flag64) {
+                                ret = hex2string(buf + i, *((int *)ptr_arg + 1), 0);
+                                i += ret;
+                                ret = hex2string(buf + i, *((int *)ptr_arg), 1);
+                                i += ret;
+                                ptr_arg = (char *)ptr_arg + 8;
+                        } else {
+                                ret = hex2string(buf + i, *((int*)ptr_arg), 0);
+                                ptr_arg = (char *)ptr_arg + 4;
+                                i += ret;
+                        }
                         break;
                 case 's':
                         ret = strcpy(buf + i, *((char **)ptr_arg));
-                        ptr_arg = (char*)ptr_arg + 4;
+                        ptr_arg = (char *)ptr_arg + 4;
                         i += ret;
                         break;
                 case 'd':
                         ret = dec2string(buf + i, *((int *)ptr_arg));
-                        ptr_arg = (char*)ptr_arg + 4;
+                        ptr_arg = (char *)ptr_arg + 4;
                         i += ret;
                         break;
                 default:

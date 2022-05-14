@@ -217,7 +217,6 @@ void sys_sendrecv(mcb_t *ptr_mcb, uint32_t message_type)
         }
 }
 
-
 void ipc_init(void)
 {
         memset((uint8_t *)mcb_table, 0, sizeof(mcb_t) * MAX_MCB_COUNT); 

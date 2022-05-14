@@ -52,6 +52,8 @@ int_c.o : interrupt/interrupt.c
 	$(CC) -c $(CFLAGS) $(INCLUDE) $^ -o $@
 debug.o : common/debug.c
 	$(CC) -c $(CFLAGS) $(INCLUDE) $^ -o $@
+log.o   : common/log.c
+	$(CC) -c $(CFLAGS) $(INCLUDE) $^ -o $@
 
 proc.o : process/process.c
 	$(CC) -c $(CFLAGS) $(INCLUDE) $^ -o $@
@@ -71,7 +73,7 @@ fs.o    : io/fs.c
 	$(CC) -c $(CFLAGS) $(INCLUDE) $^ -o $@
 tty.o   : io/tty.c
 	$(CC) -c $(CFLAGS) $(INCLUDE) $^ -o $@
-kn.bin  : kn_S.o kn_c.o desc.o int_S.o int_c.o proc.o debug.o task.o ipc.o kb.o tty.o heap.o string.o io.o hd.o fs.o memory.o
+kn.bin  : kn_S.o kn_c.o desc.o int_S.o int_c.o proc.o debug.o task.o ipc.o kb.o tty.o heap.o string.o io.o hd.o fs.o memory.o log.o
 	$(LD) $(ELF) -Ttext $(KN_ENTRY) $^ -o $@
 
 clean   :

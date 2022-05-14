@@ -2,6 +2,7 @@
 #include "interrupt.h"
 #include "io.h"
 #include "ipc.h"
+#include "process.h"
 #include "memory.h"
 #include "string.h"
 #include "tty.h"
@@ -49,6 +50,8 @@
 #define STATUS_ERR              (-1)
 #define STATUS_OK               (0)
 
+#define DUMP_PARTITION_INFO     (1)
+
 typedef struct hd_cmd {
         uint8_t features;
         uint8_t count;
@@ -86,7 +89,9 @@ typedef struct hd_device {
 } hd_dev_t;
 
 static hd_dev_t hd_dev[NUM_MAX_DRIVER] = {0};
+static uint8_t ack_buffer[SECTOR_SIZE] = {0};
 static volatile uint8_t g_is_busy = 0;
+static int hd_pid = 0;
 
 /******************************************************************
 * Hard disk I/O Workspace
@@ -527,6 +532,16 @@ static int hd_test(void)
         return STATUS_OK;
 }
 
+void hd_send_message(const hd_msg_t *msg)
+{
+        memset(ack_buffer, 0, SECTOR_SIZE);
+        sync_send(hd_pid, (uint8_t *)msg, sizeof(hd_msg_t));
+        for ( ;; ) {
+                sync_receive(hd_pid, ack_buffer, SECTOR_SIZE);
+                if (strcmp(ack_buffer, HD_ACK_CMD_DONE, strlen(HD_ACK_CMD_DONE)))
+                        break;
+        }
+}
 
 void hd_task(void)
 {
@@ -540,31 +555,32 @@ void hd_task(void)
         dump_partitions(1);
 #endif
 
+        hd_pid = get_current_pid();
         for ( ;; ) {
                 memset(&msg, 0, sizeof(msg));
                 sync_receive(PID_ANY, (uint8_t *)&msg, sizeof(msg));
                 switch (msg.operation) {
                 case HD_OP_WRITE:
                         hd_write(msg.drv_no, msg.addr, msg.length, msg.message_buffer);
-                        sync_send(msg.pid_src, HD_ACK_WRITE_DONE, strlen(HD_ACK_WRITE_DONE));
+                        sync_send(msg.pid_src, HD_ACK_CMD_DONE, strlen(HD_ACK_CMD_DONE));
                         break;
                 case HD_OP_READ:
                         hd_read(msg.drv_no, msg.addr, msg.length, msg.message_buffer);
-                        sync_send(msg.pid_src, HD_ACK_READ_DONE, strlen(HD_ACK_READ_DONE));
+                        sync_send(msg.pid_src, HD_ACK_CMD_DONE, strlen(HD_ACK_CMD_DONE));
                         break;
                 case HD_OP_WRITE_PARTITION:
                         hd_write_partition(msg.drv_no, MAKE_PARTITION_INDEX(msg.primary_index, msg.logical_index),
                                                        msg.addr,
                                                        msg.length,
                                                        msg.message_buffer);
-                        sync_send(msg.pid_src, HD_ACK_READ_DONE, strlen(HD_ACK_READ_DONE));
+                        sync_send(msg.pid_src, HD_ACK_CMD_DONE, strlen(HD_ACK_CMD_DONE));
                         break;
                 case HD_OP_READ_PARTITION:
                         hd_read_partition(msg.drv_no, MAKE_PARTITION_INDEX(msg.primary_index, msg.logical_index),
                                                       msg.addr,
                                                       msg.length,
                                                       msg.message_buffer);
-                        sync_send(msg.pid_src, HD_ACK_READ_DONE, strlen(HD_ACK_READ_DONE));
+                        sync_send(msg.pid_src, HD_ACK_CMD_DONE, strlen(HD_ACK_CMD_DONE));
                         break;
                 default:
                         sync_send(msg.pid_src, HD_ACK_UNSUPPORT_CMD, strlen(HD_ACK_UNSUPPORT_CMD));

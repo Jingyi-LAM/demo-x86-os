@@ -3,9 +3,8 @@
 
 #include "typedef.h"
 
-#define HD_ACK_WRITE_DONE       "HD WR Done"
-#define HD_ACK_READ_DONE        "HD RD Done"
-#define HD_ACK_UNSUPPORT_CMD    "Unsupport Message Type"
+#define HD_ACK_CMD_DONE         "HD CMD Done"
+#define HD_ACK_UNSUPPORT_CMD    "Unsupport CMD Type"
 
 #define MAKE_PARTITION_INDEX(primary, logical)  \
         ((primary & 0xffff) << 16 | (logical & 0xffff))
@@ -36,6 +35,7 @@ typedef struct hd_message {
         int32_t         pid_src;
 } hd_msg_t;
 
+void hd_send_message(const hd_msg_t *msg);
 void hd_task(void);
 #endif
 

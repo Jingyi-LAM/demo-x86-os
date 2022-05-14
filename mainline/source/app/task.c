@@ -5,12 +5,15 @@
 #include "interrupt.h"
 #include "ipc.h"
 #include "keyboard.h"
+#include "log.h"
 #include "memory.h"
 #include "process.h"
 #include "string.h"
 #include "tty.h"
 #include "typedef.h"
 #include "kernel.h"
+
+#define LOCAL_TRACE     (1)
 
 void cmd_say_hello(void)
 {
@@ -19,6 +22,8 @@ void cmd_say_hello(void)
 
         tty_newline();
         tty_display(-1, len, show, TTY_BG_GRAY | TTY_FG_LIGHTCYAN);
+
+        log_buffer_init();
 }
 
 void cmd_say_goodbye(void)
@@ -28,6 +33,8 @@ void cmd_say_goodbye(void)
 
         tty_newline();
         tty_display(-1, len, show, TTY_BG_GRAY | TTY_FG_LIGHTCYAN);
+
+        LTRACE("Log Test\n");
 }
 
 void demo1(void)
