@@ -16,8 +16,10 @@
 #define PRESENT_NOT_MEMORY      (0x0)
 #define PRESENT_IN_MEMORY       (0x1)
 
+#define DESCRIPTOR_SIZE         (0x8)
+#define GATE_SIZE               (0x8)
 
-typedef struct sw_descriptor {
+typedef struct descriptor {
         uint32_t base_address;
         uint32_t segment_limit;
         uint8_t  segment_type;
@@ -28,34 +30,17 @@ typedef struct sw_descriptor {
         uint8_t  ia32e_mode;
         uint8_t  default_operation_size;
         uint8_t  granularity;
-} sw_desc_t;
+} desc_t;
 
-typedef struct sw_gate {
+typedef struct gate {
         uint16_t selector;
         uint32_t handler_entry_offset;
         uint8_t  present;
         uint8_t  dpl;
         uint8_t  segment_type;
         uint8_t  param_count;
-} sw_gate_t;
+} gate_t;
 
-typedef struct hw_descriptor {
-        uint16_t limit_low;
-        uint16_t seg_base_low;
-        uint8_t  seg_base_mid;
-        uint8_t  attr1;
-        uint8_t  attr2;
-        uint8_t  seg_base_high;
-} hw_desc_t;
-
-typedef struct hw_gate {
-        uint16_t offset_low;
-        uint16_t selector;
-        uint8_t  dcount;
-        uint8_t  attr;
-        uint16_t offset_high;
-} hw_gate_t;
-
-void write_desc(hw_desc_t *ptr_hw_desc, const sw_desc_t *ptr_sw_desc);
-void write_gate(hw_gate_t *ptr_hw_gate, const sw_gate_t *ptr_sw_gate);
+void write_desc(void *ptr_desc_entry, const desc_t *ptr_desc);
+void write_gate(void *ptr_gate_entry, const gate_t *ptr_gate);
 #endif

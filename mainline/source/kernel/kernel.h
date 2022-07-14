@@ -3,8 +3,8 @@
 
 #include "descriptor.h"
 
-hw_desc_t *get_available_desc(void);
-int32_t get_desc_selector(hw_desc_t *ptr_desc);
+void *get_available_desc(void);
+int32_t get_desc_selector(void *ptr_desc);
 void set_tss_esp0(uint32_t esp0);
 
 #endif

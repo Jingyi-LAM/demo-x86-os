@@ -15,7 +15,7 @@
 #define MAX_SYSCALL_COUNT       (128)
 
 uint8_t idt_meta[6];
-static hw_gate_t idt[MAX_INTERRUPT_COUNT];
+static uint8_t idt[8 * MAX_INTERRUPT_COUNT];
 volatile int k_reenter = -1;
 volatile uint8_t available_syscall_index = 0;
 static void (*vector_table[MAX_INTERRUPT_COUNT])(void) = {
@@ -37,7 +37,7 @@ void (*syscall_handler_table[MAX_SYSCALL_COUNT])(void);
 
 void idt_init(void)
 {       
-        sw_gate_t gate = {0}; 
+        gate_t gate = {0}; 
         int i = 0;
 
         gate.selector     = 0x8;
@@ -48,13 +48,13 @@ void idt_init(void)
 
         for (i = 0; i < MAX_INTERRUPT_COUNT; i++) {
                 gate.handler_entry_offset = (uint32_t)vector_table[i];
-                write_gate(&idt[i], &gate);
+                write_gate(&idt[8 * i], &gate);
         }
 
         gate.handler_entry_offset = (uint32_t)syscall;
-        write_gate(&idt[100], &gate);
+        write_gate(&idt[8 * 100], &gate);
 
-        *(uint16_t *)idt_meta = sizeof(hw_gate_t) * MAX_INTERRUPT_COUNT;
+        *(uint16_t *)idt_meta = 8 * MAX_INTERRUPT_COUNT;
         *((uint32_t *)&idt_meta[2]) = (uint32_t)&idt;
 }
 

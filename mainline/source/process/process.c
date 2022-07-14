@@ -4,11 +4,55 @@
 #include "memory.h"
 #include "process.h"
 #include "string.h"
+#include "kheap.h"
+
+extern uint32_t sel_sysdata;
+extern uint8_t kstack;  // Set uint8_t but not void to fix build warning 
+volatile hw_tss_t tss = {0};
 
 static process_t process_table[MAX_PROCESS] = {0};
 process_t *ptr_proc_run = 0;
 
-process_t *get_available_process_struct(void)
+// Purpose:
+//   Initialize SS0 and ESP0 fields in TSS descriptor and load TSS table. When an exception or
+//   interrupt occurs and enter Ring0, the value of the current process register will be saved.
+//   Therefore, ESP0 needs to point to the top of the stack_frame structure.
+//
+// Input:
+//   void
+//
+// Output:
+//   The selector of TSS descriptor.
+static uint32_t tss_init(void)
+{
+        uint16_t selector_tss = 0;
+        desc_t tss_desc = {
+                .base_address           = (unsigned int)&tss,
+                .segment_limit          = sizeof(struct hw_tss),
+                .segment_type           = SEGTYPE_386TSS,
+                .descriptor_type        = DESC_TYPE_SYS,
+                .dpl                    = 0,
+                .present                = PRESENT_IN_MEMORY,
+        };
+        void *ptr_desc_entry = 0;
+
+        tss.ss0 = sel_sysdata;
+        tss.esp0 = (uint32_t)&kstack;
+        tss.iobase = sizeof(hw_tss_t);
+
+        ptr_desc_entry = get_available_desc();
+        write_desc(ptr_desc_entry, &tss_desc);
+        selector_tss = get_desc_selector(ptr_desc_entry);
+
+        __asm__ __volatile__(
+                "ltr    %0\n\t"
+                ::"a"(selector_tss):
+        );
+
+        return selector_tss;
+}
+
+static process_t *get_available_process_struct(void)
 {
         int32_t i = 0, j = 0;
 
@@ -25,20 +69,24 @@ process_t *get_available_process_struct(void)
 
 int32_t create_process(proc_info_t *ptr_proc_info)
 {
-        sw_desc_t ldt_desc = {0}; 
-        hw_desc_t *ptr_gdt_desc = get_available_desc();
+        desc_t ldt_desc = {0};
+        void *ptr_gdt_desc = get_available_desc();
         process_t *ptr_proc_curr = get_available_process_struct();
         process_t *ptr_proc_prev = 0;
+        uint8_t *process_stack = 0;
         uint32_t i = 0;
 
         if (weak_assert(ptr_proc_curr) || weak_assert(ptr_gdt_desc) || weak_assert(ptr_proc_info))
+                return -1;
+        process_stack = kmalloc(ptr_proc_info->stack_size);
+        if (!process_stack)
                 return -1;
 
         if (ptr_proc_info->priviledge < 0 || ptr_proc_info->priviledge > 3)
                 ptr_proc_info->priviledge = 3;
 
         ldt_desc.base_address    = (uint32_t)ptr_proc_curr->ldts;
-        ldt_desc.segment_limit   = 2 * sizeof(hw_desc_t);
+        ldt_desc.segment_limit   = 2 * 8;
         ldt_desc.segment_type    = 0x2;
         ldt_desc.descriptor_type = 0;
         ldt_desc.dpl             = 0;
@@ -54,7 +102,7 @@ int32_t create_process(proc_info_t *ptr_proc_info)
         ptr_proc_curr->regs.cs = 0x0 | 4 | ptr_proc_info->priviledge;
 
         ptr_proc_curr->regs.eip = (uint32_t)ptr_proc_info->f_entry;
-        ptr_proc_curr->regs.esp = (uint32_t)ptr_proc_info->stack + ptr_proc_info->stack_size;
+        ptr_proc_curr->regs.esp = (uint32_t)process_stack + ptr_proc_info->stack_size;
         ptr_proc_curr->regs.eflags = 0x1202;
 
         ptr_proc_curr->selector_ldt = get_desc_selector(ptr_gdt_desc);
@@ -68,8 +116,8 @@ int32_t create_process(proc_info_t *ptr_proc_info)
         case 0:
         case 1:
         case 2:
-                ptr_proc_curr->schedule_info.time_slice = 30;
-                ptr_proc_curr->schedule_info.default_ts = 30;
+                ptr_proc_curr->schedule_info.time_slice = 50;
+                ptr_proc_curr->schedule_info.default_ts = 50;
                 break;
         case 3:
                 ptr_proc_curr->schedule_info.time_slice = 10;
@@ -109,7 +157,7 @@ int32_t get_current_pid(void)
                 return -1;
 }
 
-process_t *pid2proc(uint32_t pid)
+static process_t *pid2proc(uint32_t pid)
 {
         process_t *current = process_table;
 
@@ -123,7 +171,7 @@ process_t *pid2proc(uint32_t pid)
         return current;
 }
 
-int32_t get_pid_by_name(uint8_t *name)
+static int32_t get_pid_by_name(uint8_t *name)
 {
         uint32_t i = 0;
 
@@ -189,7 +237,7 @@ void block(uint32_t pid)
 
         ptr_proc_run = ptr_proc;
         ptr_proc_run->schedule_info.time_slice = ptr_proc_run->schedule_info.default_ts;
-        set_tss_esp0((uint32_t)&ptr_proc_run->selector_ldt);
+        tss.esp0 = (uint32_t)&ptr_proc_run->selector_ldt;
         __asm__ __volatile__(
                 "movl   %0,     %%edi   \n\t"
                 "lldt   72(%%edi)       \n\t"
@@ -197,7 +245,7 @@ void block(uint32_t pid)
         );
 }
 
-void process_schedule(void)
+static void process_schedule(void)
 {
         ptr_proc_run->schedule_info.time_slice -= 1;
         if (ptr_proc_run->schedule_info.time_slice < 0) {
@@ -208,7 +256,7 @@ void process_schedule(void)
                         if (ptr_proc_run->process_status == PS_READY_TO_RUN)
                                 break;
                 }
-                set_tss_esp0((uint32_t)&ptr_proc_run->selector_ldt);
+                tss.esp0 = (uint32_t)&ptr_proc_run->selector_ldt;
 
                 __asm__ __volatile__(
                         "movl   %0,     %%edi   \n\t"
@@ -222,12 +270,14 @@ void process_schedule(void)
 void process_pre_init(void)
 {
         int32_t i = 0;
+
+        tss_init();
         
         for (i = 0; i < MAX_PROCESS * sizeof(process_t); i++)
                 *((uint8_t *)process_table + i) = 0;
 
-        register_interrupt_handler(0x20, process_schedule);
         // Mapping: irq 0x20 - master 0, Timer Interrupt
+        register_interrupt_handler(0x20, process_schedule);
         enable_irq_master(0);
 }
 

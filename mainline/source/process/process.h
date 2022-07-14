@@ -65,7 +65,6 @@ typedef struct hw_tss {
 
 typedef struct process_info {
         void            (*f_entry)(void);
-        uint8_t         *stack;
         uint8_t         name[16];
         uint32_t        stack_size;
         uint8_t         priviledge;
@@ -80,7 +79,7 @@ typedef struct schedule_information {
 typedef struct process {
         stack_frame_t   regs;
         uint16_t        selector_ldt;
-        hw_desc_t       ldts[2];
+        uint8_t         ldts[2 * 8];
         proc_info_t     proc_info;
         schedule_info_t schedule_info;
         uint8_t         process_previous_status;
@@ -91,16 +90,10 @@ typedef struct process {
 } process_t;
 
 
-void block(uint32_t pid);
-void unblock(uint32_t pid);
-
-void enter_critical_area(void);
-void exit_critical_area(void);
-
-process_t *get_available_process_struct(void);
-process_t *pid2proc(uint32_t pid);
-int32_t get_current_pid(void);
-int32_t get_pid_by_name(uint8_t *name);
-
-int32_t create_process(proc_info_t *ptr_proc_info);
+void    block              (uint32_t pid);
+void    unblock            (uint32_t pid);
+void    enter_critical_area(void);
+void    exit_critical_area (void);
+int32_t get_current_pid    (void);
+int32_t create_process     (proc_info_t *ptr_proc_info);
 #endif

@@ -1,81 +1,33 @@
+.globl  kstack
+.globl  _start
+.globl  desc_gdt
+.globl  sel_syscode
+.globl  sel_sysdata
+
+############################### Native kernel
+.section        .text
 .code32 
-.section        .text
-        jmp     _start
 
-.section        .data
-############################### global descriptor table
-desc_gdt:
-        .long   0, 0
-desc_syscode:
-        .word	0b1111111111111111
-        .word	0b0000000000000000
-        .word	0b1001101000000000
-        .word	0b0000000011001111
-desc_sysdata:
-        .word	0b1111111111111111
-        .word	0b0000000000000000
-        .word	0b1001001000000000
-        .word	0b0000000011001111
-# new descriptor here
-desc_tss:
-        .long   0, 0
-desc_ldt:
-        .long   0, 0
-
-gdtmeta:
-        .word   . - desc_gdt - 1
-        .long   desc_gdt
-
-.globl  desc_tss
-############################### global descriptor table end
-
-############################### kernel stack
-        . =     . + 2048
-kstack:
-############################### kernel stack end
-
-sel_syscode	= desc_syscode	- desc_gdt
-sel_sysdata	= desc_sysdata	- desc_gdt
-sel_tss         = desc_tss      - desc_gdt
-
-
-.globl          _start
-.globl          kstack
-.code32
-.section        .text
 _start:
         lgdt    gdtmeta
 
-        movw    $sel_sysdata,   %ax
+        movw    sel_sysdata,    %ax
         movw    %ax,            %ds
         movw    %ax,            %es
         movw    %ax,            %ss
         movw    %ax,            %fs
         movl    $kstack,        %esp 
 
-        sgdt    gdt_meta
-        call    reorganize_gdt
-        lgdt    gdt_meta
-
         # Initialize interrupt vector table and test
         call    idt_init
         lidt    idt_meta
         call    chip8259a_init
 
-        # Initialize tss
-        pushl   %esp
-        pushl   $sel_sysdata
-        call    tss_init
-        popl    %ebx 
-        popl    %ebx 
-        ltr     %ax
-
         call    process_pre_init
         call    ipc_init
         call    create_task
         call	keyboard_init
-	cli
-	
+
         movl    ptr_proc_run,   %esp
         lldt    72(%esp)
         lea     72(%esp),       %eax
@@ -89,22 +41,46 @@ _start:
         popa
         addl    $4,             %esp
         iret
+############################### Native kernel end
 
 
-#        xorl    %eax,           %eax
-#        call    ldt_init
-#        lldt    %ax
-#
-#        movw    $15,            %ax
-#        movw    %ax,            %ds
-#        movw    %ax,            %es
-#        movw    %ax,            %fs
-#        movw    %ax,            %gs
-#
-#        push    $15
-#        push    $0x30400
-#        push    $0
-#        push    $7
-#        push    $demo_process1
-#        iret
-        
+
+############################### Kernel stack
+.section        .data
+
+        . =     . + 2048
+kstack:
+############################### Kernel stack end
+
+
+
+############################### Global descriptor table
+.section        .data
+
+# GDT Pointer
+gdtmeta:
+        .word   2048
+        .long   desc_gdt
+
+# desc_syscode and desc_sysdata are temporary descriptors
+desc_gdt:
+        .long   0, 0
+desc_syscode:
+        .word	0b1111111111111111
+        .word	0b0000000000000000
+        .word	0b1001101000000000
+        .word	0b0000000011001111
+desc_sysdata:
+        .word	0b1111111111111111
+        .word	0b0000000000000000
+        .word	0b1001001000000000
+        .word	0b0000000011001111
+
+# Support up to 256 descriptors
+        . =     . + 2048 - 24
+
+sel_syscode:
+        .long   desc_syscode - desc_gdt
+sel_sysdata:
+        .long   desc_sysdata - desc_gdt
+############################### Global descriptor table end
